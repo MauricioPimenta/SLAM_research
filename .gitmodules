@@ -1,3 +1,3 @@
 [submodule "slam_toolbox"]
-	path = slam_toolbox
+	path = ros_workspace/src/slam_toolbox
 	url = https://github.com/MauricioPimenta/slam_toolbox_lab-air.git
