@@ -11,9 +11,9 @@ The git repository of the *slam_toolbox* can be accessed in the folowing link: [
 
 
 ### To-do List:
-- [ ] Make this list (:
+- [x] Make this list (:
 - [ ] Study and understand the slam_toolbox configuration paramenters
 - [ ] Get the LIMO Lidar's parameters and characteristics
-- [ ] Install Lidar 360 in a LIMO
+- [x] Install Lidar 360 in a LIMO
 - [ ] Run the LIMO in the Lab and record a ROSbag with the Lidars and Odometry informations
 
