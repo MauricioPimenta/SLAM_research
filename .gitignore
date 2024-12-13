@@ -7,7 +7,7 @@
 # Build and devel directories from ros workspace
 ros_workspace/build
 ros_workspace/devel
-ros_workspace/CMakeLists.txt
+ros_workspace/src/CMakeLists.txt
 
 
 
