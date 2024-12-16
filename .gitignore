@@ -9,6 +9,8 @@ ros_workspace/build
 ros_workspace/devel
 ros_workspace/src/CMakeLists.txt
 
+# rosbags are too big if not zipped
+/rosbags/*.bag
 
 
 
