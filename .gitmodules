@@ -1,6 +1,4 @@
-[submodule "slam_toolbox"]
-	path = ros_workspace/src/slam_toolbox
-	url = https://github.com/MauricioPimenta/slam_toolbox_lab-air.git
 [submodule "ros_workspace/src/slam_toolbox_lab-air"]
 	path = ros_workspace/src/slam_toolbox_lab-air
 	url = https://github.com/MauricioPimenta/slam_toolbox_lab-air.git
+	branch = noetic-devel
