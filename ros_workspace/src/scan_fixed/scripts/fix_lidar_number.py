@@ -15,6 +15,7 @@ class LaserScanAdjuster:
         # Make a copy of the original scan message
         fixed_scan = LaserScan()
         fixed_scan.header = msg.header
+        fixed_scan.header.frame_id = 'laser_fixed'
         fixed_scan.angle_min = msg.angle_min
         fixed_scan.angle_max = msg.angle_max
         fixed_scan.angle_increment = msg.angle_increment
