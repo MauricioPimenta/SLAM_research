@@ -1,0 +1,7 @@
+image: /home/mauricio-ros/Documents/SLAM_research/Maps/2024.12.19/360_None_LabAir.pgm
+resolution: 0.050000
+origin: [-4.191094, -3.561891, 0.000000]
+negate: 0
+occupied_thresh: 0.65
+free_thresh: 0.196
+
