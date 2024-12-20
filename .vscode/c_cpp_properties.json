@@ -4,6 +4,7 @@
             "name": "Linux",
             "includePath": [
                 "${default}",
+                "/opt/ros/noetic/include/**",
                 "${workspaceFolder}/**"
             ],
             "defines": [],
