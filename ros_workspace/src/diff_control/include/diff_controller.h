@@ -7,12 +7,21 @@
  * to a 'cmd_vel' ROS topic to make the robot move to the desired position.
  *
  *
+ ** Subscribes to:
+ *      * vrpn twist topic from the vrpn_client_ros package (name defined by the launch file)
+ *      * pose topic from the slam_toolbox: pose of the base_frame along with the covariance
+ **       calculated from the scan match
+ *
+ *
+ ** Publishes to: cmd_vel topic
  *
  *------------------------------------------------------------------------------------------------**/
 
 
 #include <ros/ros.h>
 #include <geometry_msgs/Twist.h>
+#include <geometry_msgs/PoseWithCovarianceStamped.h>
+#include <geometry_msgs/PoseStamped.h>
 
 class diff_controller
 {

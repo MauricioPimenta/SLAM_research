@@ -13,4 +13,6 @@ ros_workspace/src/CMakeLists.txt
 /rosbags/*.bag
 
 
-
+# ignore vscode configurations?
+#.vscode
+#/*/.vscode
