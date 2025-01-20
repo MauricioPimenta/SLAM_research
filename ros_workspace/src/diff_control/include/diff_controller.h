@@ -20,12 +20,16 @@
 /* System Includes */
 #include <iostream>
 #include <vector>
+#include <math.h>
+
 
 /* ROS */
 #include <ros/ros.h>
+
 #include <geometry_msgs/Twist.h>
 #include <geometry_msgs/PoseWithCovarianceStamped.h>
 #include <geometry_msgs/PoseStamped.h>
+#include <geometry_msgs/Pose.h>
 
 
 
@@ -106,6 +110,7 @@ public:
         // add the message to an array of all messages
         slam_pose_list_.push_back(slam_pose_);
 
+
         // calculate the velocity commands
         calculateVelocities();
 
@@ -120,6 +125,48 @@ public:
      *---------------------------------------------**/
     geometry_msgs::Twist calculateVelocities()
     {
+
+    }
+
+    /**----------------------------------------------
+     **              calculateControlSignals
+     *?  Calculates the control signals to move the robot to the desired position.
+     * @param last_position geometry_msgs::Pose
+     * @param desired_position geometry_msgs::Pose
+     * @return void
+     *---------------------------------------------**/
+    void calculateControlSignals(geometry_msgs::Pose last_position, geometry_msgs::Pose desired_position)
+    {
+        double x = last_position.position.x;
+        double y = last_position.position.y;
+        double theta = last_position.orientation.z;
+
+        double x_d = desired_position.position.x;
+        double y_d = desired_position.position.y;
+        double theta_d = desired_position.orientation.z;
+
+        // Parametros do controlador
+        double a = 0.1;
+        double Kx = 1.0;
+        double Ky = 1.0;
+
+        // Erro de posicao
+        double x_error = x_d - x;
+        double y_error = y_d - y;
+
+        // Velocidades desejadas
+        double Vxd = 1.0;
+        double Vyd = 1.0;
+
+        // Calculo dos sinais de controle - velocidade linear e angular no eixo do robo
+        double u = cos(theta) * (Vxd + Kx*x_error) + sin(theta) *(Vyd + Ky*y_error);
+        double w = (1/a)*(-sin(theta)*(Vxd + Kx*x_error) + cos(theta)*(Vyd + Ky*y_error));
+
+        cmd_vel_.linear.x = u;
+        cmd_vel_.angular.z = w;
+
+        // add the message to an array of all messages
+        cmd_vel_list_.push_back(cmd_vel_);
 
     }
 
