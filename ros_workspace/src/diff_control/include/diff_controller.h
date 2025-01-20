@@ -53,7 +53,7 @@ public:
         // subscribe to the vrpn twist topic
         vrpn_sub_ = nh_.subscribe("vrpn_client_node/twist", 1, &diff_controller::vrpnCallback, this);
         // subscribe to the pose topic from the slam_toolbox
-        pose_sub_ = nh_.subscribe("slam_toolbox/pose", 1, &diff_controller::poseCallback, this);
+        pose_sub_ = nh_.subscribe("slam_toolbox/pose", 1, &diff_controller::slam_poseCallback, this);
 
         /*
         * Publishers *
@@ -62,14 +62,14 @@ public:
         cmd_vel_pub_ = nh_.advertise<geometry_msgs::Twist>("cmd_vel", 1);
     }
 
-    /*
-     * vrpn Twist Message Callback
-     * @param msg: vrpn twist message
-     *
-     * This function is called whenever a new vrpn twist message is received.
-     * Gets information of the robot position from the optitrack system.
-     * Used as reference to compare with the results from the slam_toolbox.
-     */
+    /****************************************************************************
+    ** vrpn Twist Message Callback *
+    *  @param msg: vrpn twist message
+    *
+    *  This function is called whenever a new vrpn twist message is received.
+    *  Gets information of the robot position from the optitrack system.
+    *  Used as reference to compare with the results from the slam_toolbox.
+     ****************************************************************************/
     void vrpnCallback(const geometry_msgs::Twist::ConstPtr& msg)
     {
         // save the message
@@ -84,15 +84,15 @@ public:
         vrpn_twist_list_.push_back(vrpn_twist_);
     }
 
-    /*
-     * slam_toolbox Pose Message Callback
-     * @param msg: pose message
-     *
-     * This function is called whenever a new pose message is received.
-     * Gets information of the robot position from the slam_toolbox.
-     * Used to calculate the velocity commands to move the robot to the desired position.
-     */
-    void poseCallback(const geometry_msgs::PoseWithCovarianceStamped::ConstPtr& msg)
+    /****************************************************************************************
+    ** slam_toolbox Pose Message Callback
+    *  @param msg: pose message
+    *
+    *  This function is called whenever a new pose message is received.
+    *  Gets information of the robot position from the slam_toolbox.
+    *  Used to calculate the velocity commands to move the robot to the desired position.
+    */
+    void slam_poseCallback(const geometry_msgs::PoseWithCovarianceStamped::ConstPtr& msg)
     {
         // save the message
         slam_pose_.header.seq = msg->header.seq;
@@ -123,9 +123,9 @@ public:
      * @param desired_position type  
      * @return cmd_vel type
      *---------------------------------------------**/
-    geometry_msgs::Twist calculateVelocities()
+    void calculateVelocities()
     {
-
+        
     }
 
     /**----------------------------------------------
