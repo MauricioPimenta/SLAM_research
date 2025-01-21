@@ -22,7 +22,6 @@
 #include <vector>
 #include <math.h>
 
-
 /* ROS */
 #include <ros/ros.h>
 
@@ -31,6 +30,8 @@
 #include <geometry_msgs/PoseStamped.h>
 #include <geometry_msgs/Pose.h>
 
+/* tf is needed to convert quaternions to Euler and vice versa */
+#include <tf.h>
 
 
 class diff_controller
@@ -72,6 +73,8 @@ public:
      ****************************************************************************/
     void vrpnCallback(const geometry_msgs::Twist::ConstPtr& msg)
     {
+        ROS_INFO("\nGetting Twist Message from vrpn_client_ros...");
+
         // save the message
         vrpn_twist_.linear.x = msg->linear.x;
         vrpn_twist_.linear.y = msg->linear.y;
@@ -94,6 +97,8 @@ public:
     */
     void slam_poseCallback(const geometry_msgs::PoseWithCovarianceStamped::ConstPtr& msg)
     {
+        ROS_INFO("\nGetting Pose Message from slam_toolbox...");
+
         // save the message
         slam_pose_.header.seq = msg->header.seq;
         slam_pose_.header.stamp = msg->header.stamp;
