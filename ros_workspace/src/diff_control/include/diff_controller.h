@@ -21,6 +21,7 @@
 #include <iostream>
 #include <vector>
 #include <math.h>
+#include <string>
 
 /* ROS */
 #include <ros/ros.h>
@@ -48,19 +49,28 @@ public:
     // Constructor
     diff_controller() : nh_("controller"), priv_nh_("~")
     {
+        // Get and Set the Parameters from launch file
+        priv_nh_.param<std::string>("vrpn_topic", vrpn_topic_, "vrpn_client_node/twist");
+        priv_nh_.param<std::string>("pose_topic", pose_topic_, "slam_toolbox/pose");
+        priv_nh_.param<std::string>("cmd_vel_topic", cmd_vel_topic_, "cmd_vel");
+        priv_nh_.param<double>("a", a_, 0.1);
+        priv_nh_.param<double>("Kx", Kx_, 1.0);
+        priv_nh_.param<double>("Ky", Ky_, 1.0);
+
+
+
         /*
          * Subscribers
          */
         // subscribe to the vrpn twist topic
-        vrpn_sub_ = nh_.subscribe("vrpn_client_node/twist", 1, &diff_controller::vrpnCallback, this);
+        vrpn_sub_ = nh_.subscribe(vrpn_topic_, 1, &diff_controller::vrpnCallback, this);
         // subscribe to the pose topic from the slam_toolbox
-        pose_sub_ = nh_.subscribe("slam_toolbox/pose", 1, &diff_controller::slam_poseCallback, this);
+        pose_sub_ = nh_.subscribe(pose_topic_, 1, &diff_controller::slam_poseCallback, this);
 
         /*
-        * Publishers *
+        * Publishers
         */
-        // publish to the cmd_vel topic
-        cmd_vel_pub_ = nh_.advertise<geometry_msgs::Twist>("cmd_vel", 1);
+        cmd_vel_pub_ = nh_.advertise<geometry_msgs::Twist>(cmd_vel_topic_, 1);
     }
 
     /****************************************************************************
@@ -150,11 +160,6 @@ public:
         double y_d = desired_position.position.y;
         double theta_d = desired_position.orientation.z;
 
-        // Parametros do controlador
-        double a = 0.1;
-        double Kx = 1.0;
-        double Ky = 1.0;
-
         // Erro de posicao
         double x_error = x_d - x;
         double y_error = y_d - y;
@@ -164,8 +169,8 @@ public:
         double Vyd = 1.0;
 
         // Calculo dos sinais de controle - velocidade linear e angular no eixo do robo
-        double u = cos(theta) * (Vxd + Kx*x_error) + sin(theta) *(Vyd + Ky*y_error);
-        double w = (1/a)*(-sin(theta)*(Vxd + Kx*x_error) + cos(theta)*(Vyd + Ky*y_error));
+        double u = cos(theta) * (Vxd + this->Kx_*x_error) + sin(theta) *(Vyd + this->Ky_*y_error);
+        double w = (1/this->a_)*(-sin(theta)*(Vxd + this->Kx_*x_error) + cos(theta)*(Vyd + this->Ky_*y_error));
 
         cmd_vel_.linear.x = u;
         cmd_vel_.angular.z = w;
@@ -184,6 +189,19 @@ private:
     ros::Subscriber vrpn_sub_;
     ros::Subscriber pose_sub_;
     ros::Publisher cmd_vel_pub_;
+
+    /*
+     * Parameters
+     */
+        std::string vrpn_topic_;
+        std::string pose_topic_;
+        std::string cmd_vel_topic_;
+
+        // Controller Parameters
+        double a_;
+        double Kx_;
+        double Ky_;
+
 
     geometry_msgs::Twist vrpn_twist_;
     geometry_msgs::PoseWithCovarianceStamped slam_pose_;
