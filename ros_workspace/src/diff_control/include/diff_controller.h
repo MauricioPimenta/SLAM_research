@@ -19,6 +19,7 @@
 
 /* System Includes */
 #include <iostream>
+#include <fstream>  // to use files
 #include <vector>
 #include <math.h>
 #include <string>
@@ -31,6 +32,8 @@
 #include <geometry_msgs/PoseWithCovarianceStamped.h>
 #include <geometry_msgs/PoseStamped.h>
 #include <geometry_msgs/Pose.h>
+
+#include <turtlesim/Pose.h>
 
 /* tf is needed to convert quaternions to Euler and vice versa */
 #include <tf/tf.h>
@@ -50,6 +53,8 @@ class diff_controller
     ros::Subscriber goal_sub_;
     ros::Publisher cmd_vel_pub_;
 
+    ros::Subscriber turtle_sub_;
+
     /*
      * Parameters
      */
@@ -57,6 +62,8 @@ class diff_controller
         std::string pose_topic_;
         std::string cmd_vel_topic_;
         std::string goal_topic_;
+
+        std::string turtle_topic_;
 
         // Controller Parameters
         double a_;
@@ -69,11 +76,15 @@ class diff_controller
     geometry_msgs::Twist cmd_vel_;
     geometry_msgs::Pose goal_;
 
+    turtlesim::Pose turtle_pose_;
+
     // Arrays and Lists
     std::vector<geometry_msgs::PoseStamped> vrpn_twist_list_;
     std::vector<geometry_msgs::PoseWithCovarianceStamped> slam_pose_list_;
     std::vector<geometry_msgs::Twist> cmd_vel_list_;
     std::vector<geometry_msgs::Pose> goal_list_;
+
+    std::vector<turtlesim::Pose> turtle_pose_list_;
 
     /*
      * Private Methods
@@ -102,6 +113,8 @@ public:
         priv_nh_.param<double>("Kx", Kx_, 1.0);
         priv_nh_.param<double>("Ky", Ky_, 1.0);
 
+        // priv_nh_.param<std::string>("turtle_topic", turtle_topic_, "/turtle1/pose");
+
 
 
         /*
@@ -114,11 +127,28 @@ public:
         // subscribe to the goal topic
         goal_sub_ = nh_.subscribe(goal_topic_, 1, &diff_controller::goalCallback, this);
 
+        // turtle_sub_ = nh_.subscribe(turtle_topic_, 1, &diff_controller::turtleCallback, this);
+
         /*
         * Publishers
         */
         cmd_vel_pub_ = nh_.advertise<geometry_msgs::Twist>(cmd_vel_topic_, 1);
     }
+
+    // void turtleCallback(const turtlesim::Pose::ConstPtr& msg)
+    // {
+    //     ROS_DEBUG("\nGetting Turtle Pose Message from %s...", turtle_topic_.c_str());
+
+    //     // save the message
+    //     turtle_pose_.x = msg->x;
+    //     turtle_pose_.y = msg->y;
+    //     turtle_pose_.theta = msg->theta;
+    //     turtle_pose_.linear_velocity = msg->linear_velocity;
+    //     turtle_pose_.angular_velocity = msg->angular_velocity;
+
+    //     // add the message to an array of all messages
+    //     turtle_pose_list_.push_back(turtle_pose_);
+    // }
 
     /****************************************************************************
     ** vrpn Twist Message Callback *
@@ -143,15 +173,17 @@ public:
 
         // add the message to an array of all messages
         vrpn_twist_list_.push_back(vrpn_twist_);
+
+        this->calculateControlSignals(vrpn_twist_.pose, goal_);
     }
 
     /****************************************************************************************
     ** slam_toolbox Pose Message Callback
     *  @param msg: pose message
     *
-    *  This function is called whenever a new pose message is received.
-    *  Gets information of the robot position from the slam_toolbox.
-    *  Used to calculate the velocity commands to move the robot to the desired position.
+    *?  This function is called whenever a new pose message is received.
+    *?  Gets information of the robot position from the slam_toolbox.
+    *?  Used to calculate the velocity commands to move the robot to the desired position.
     */
     void slam_poseCallback(const geometry_msgs::PoseWithCovarianceStamped::ConstPtr& msg)
     {
@@ -175,17 +207,16 @@ public:
 
 
         // calculate the velocity commands
-        calculateVelocities();
         this->calculateControlSignals(slam_pose_.pose.pose, goal_);
 
     }
 
     /****************************************************************************************
-     * Goal Message Callback
+     ** Goal Message Callback
      * @param msg: goal message
      * 
-     * This function is called whenever a new goal message is received.
-     * Gets the desired position of the robot.
+     *? This function is called whenever a new goal message is received.
+     *? Gets the desired position of the robot.
      */
     void goalCallback(const geometry_msgs::Pose::ConstPtr& msg)
     {
@@ -203,18 +234,6 @@ public:
         // add the message to an array of all messages
         goal_list_.push_back(goal_);
 
-    }
-
-    /**----------------------------------------------
-     **              calculateVelocities
-     *?  Calculates the velocity commands to move the robot to the desired position.
-     * @param last_position type  
-     * @param desired_position type  
-     * @return cmd_vel type
-     *---------------------------------------------**/
-    void calculateVelocities()
-    {
-        
     }
 
     /**----------------------------------------------
@@ -259,10 +278,92 @@ public:
         cmd_vel_.linear.x = u;
         cmd_vel_.angular.z = w;
 
+        // publish the velocity commands
+        cmd_vel_pub_.publish(cmd_vel_);
+
         // add the message to an array of all messages
         cmd_vel_list_.push_back(cmd_vel_);
 
     }
 
+    // Destructor
+    ~diff_controller()
+    {
+        std::cout << "\n\n\nShutting down the Differential Controller Node...\n\n\n" << std::endl;
+        // send a message to stop the robot
+        cmd_vel_.linear.x = 0.0;
+        cmd_vel_.angular.z = 0.0;
+        cmd_vel_pub_.publish(cmd_vel_);
+
+        // save a file with all messages received and published and their timestamps
+        this->saveMessagesToFile();
+    }
+
+
+    void saveMessagesToFile(){
+
+        std::cout << "\n\n\nSaving Messages to a File...\n\n\n" << std::endl;
+        // save the messages to a file
+        std::string file_name = "../Documents/SLAM_research/messages.txt";
+        std::ofstream file(file_name);
+
+        if (!file.is_open())
+        {
+            std::cerr << "Error opening file: " << file_name << std::endl;
+            return;
+        }
+
+        // Header
+        file << "Messages Received and Published by the Differential Controller\n\n";
+        file << "===============================================\n\n";
+
+        // save the vrpn messages
+        file << "VRPN Messages: \n";
+        for (int i = 0; i < vrpn_twist_list_.size(); i++)
+        {
+            file << "Message " << i << ": \n";
+            file << "Position: (" << vrpn_twist_list_[i].pose.position.x << ", " << vrpn_twist_list_[i].pose.position.y << ", " << vrpn_twist_list_[i].pose.position.z << ")\n";
+            file << "Orientation: (" << vrpn_twist_list_[i].pose.orientation.x << ", " << vrpn_twist_list_[i].pose.orientation.y << ", " << vrpn_twist_list_[i].pose.orientation.z << ", " << vrpn_twist_list_[i].pose.orientation.w << ")\n";
+        }
+
+        file << "\n\n===============================================\n\n";
+
+        // save the slam messages
+        file << "SLAM Messages: \n";
+        for (int i = 0; i < slam_pose_list_.size(); i++)
+        {
+            file << "Message " << i << ": \n";
+            file << "Position: (" << slam_pose_list_[i].pose.pose.position.x << ", " << slam_pose_list_[i].pose.pose.position.y << ", " << slam_pose_list_[i].pose.pose.position.z << ")\n";
+            file << "Orientation: (" << slam_pose_list_[i].pose.pose.orientation.x << ", " << slam_pose_list_[i].pose.pose.orientation.y << ", " << slam_pose_list_[i].pose.pose.orientation.z << ", " << slam_pose_list_[i].pose.pose.orientation.w << ")\n";
+        }
+
+        file << "\n\n===============================================\n\n";
+
+        // save the goal messages
+        file << "Goal Messages: \n";
+        for (int i = 0; i < goal_list_.size(); i++)
+        {
+            file << "Message " << i << ": \n";
+            file << "Position: (" << goal_list_[i].position.x << ", " << goal_list_[i].position.y << ", " << goal_list_[i].position.z << ")\n";
+            file << "Orientation: (" << goal_list_[i].orientation.x << ", " << goal_list_[i].orientation.y << ", " << goal_list_[i].orientation.z << ", " << goal_list_[i].orientation.w << ")\n";
+        }
+
+        file << "\n\n===============================================\n\n";
+
+        // save the cmd_vel messages
+        file << "CMD_VEL Messages: \n";
+        for (int i = 0; i < cmd_vel_list_.size(); i++)
+        {
+            file << "Message " << i << ": \n";
+            file << "Linear Velocity: " << cmd_vel_list_[i].linear.x << "\n";
+            file << "Angular Velocity: " << cmd_vel_list_[i].angular.z << "\n";
+        }
+
+        // close and save file
+        file.close();
+
+        std::cout << "\n\n\nMessages Saved to File: " << file_name << "\n\n\n" << std::endl;
+
+    }
 
 };

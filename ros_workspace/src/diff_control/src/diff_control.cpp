@@ -8,7 +8,7 @@
  *
  *
  *-----------------------------------------------------------------------------------------**/
-
+#include <iostream>
 #include <ros/ros.h>
 
 #include "diff_controller.h"
@@ -16,9 +16,15 @@
 int main(int argc, char * argv[])
 {
     ros::init(argc, argv, "diff_control");
-    diff_controller controlller = diff_controller();
+    diff_controller controller = diff_controller();
 
     ros::spin();
+
+    delete &controller;
+    // controller.~diff_controller();
+
     ros::shutdown();
+
+    std::cout << "diff_control node has been shut down." << std::endl;
     return 0;
 }
