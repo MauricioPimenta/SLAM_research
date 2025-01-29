@@ -24,6 +24,7 @@
 #include <math.h>
 #include <string>
 
+
 /* ROS */
 #include <ros/ros.h>
 
@@ -89,6 +90,7 @@ class diff_controller
     /*
      * Private Methods
      */
+    
 
 
 
@@ -104,6 +106,8 @@ public:
     // Constructor
     diff_controller() : nh_(""), priv_nh_("~")
     {
+        
+
         // Get the Parameters from the launch file and set default values
         priv_nh_.param<std::string>("vrpn_topic", vrpn_topic_, "/vrpn_client_node/L1/pose");
         priv_nh_.param<std::string>("pose_topic", pose_topic_, "/slam_toolbox/pose");
@@ -134,6 +138,8 @@ public:
         */
         cmd_vel_pub_ = nh_.advertise<geometry_msgs::Twist>(cmd_vel_topic_, 1);
     }
+
+    
 
     // void turtleCallback(const turtlesim::Pose::ConstPtr& msg)
     // {
@@ -290,6 +296,8 @@ public:
     ~diff_controller()
     {
         std::cout << "\n\n\nShutting down the Differential Controller Node...\n\n\n" << std::endl;
+
+        std::cout << "Stopping Robot...\n\n" << std::endl;
         // send a message to stop the robot
         cmd_vel_.linear.x = 0.0;
         cmd_vel_.angular.z = 0.0;
