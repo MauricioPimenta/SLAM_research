@@ -59,11 +59,13 @@ class diff_controller
     /*
      * Parameters
      */
+        // parameters to configure the node - used in launch file
         std::string vrpn_topic_;
         std::string pose_topic_;
         std::string cmd_vel_topic_;
         std::string goal_topic_;
 
+        bool use_turtle_sim_;
         std::string turtle_topic_;
 
         // Controller Parameters
@@ -72,6 +74,7 @@ class diff_controller
         double Ky_;
 
 
+    // Messages used by the node
     geometry_msgs::PoseStamped vrpn_twist_;
     geometry_msgs::PoseWithCovarianceStamped slam_pose_;
     geometry_msgs::Twist cmd_vel_;
@@ -106,20 +109,17 @@ public:
     // Constructor
     diff_controller() : nh_(""), priv_nh_("~")
     {
-        
-
         // Get the Parameters from the launch file and set default values
-        priv_nh_.param<std::string>("vrpn_topic", vrpn_topic_, "/vrpn_client_node/L1/pose");
-        priv_nh_.param<std::string>("pose_topic", pose_topic_, "/slam_toolbox/pose");
-        priv_nh_.param<std::string>("cmd_vel_topic", cmd_vel_topic_, "/cmd_vel");
-        priv_nh_.param<std::string>("goal_topic", goal_topic_, "/goal");
+        priv_nh_.param<std::string>("vrpn_topic", vrpn_topic_, "vrpn_client_node/L1/pose");
+        priv_nh_.param<std::string>("pose_topic", pose_topic_, "slam_toolbox/pose");
+        priv_nh_.param<std::string>("cmd_vel_topic", cmd_vel_topic_, "cmd_vel");
+        priv_nh_.param<std::string>("goal_topic", goal_topic_, "goal");
         priv_nh_.param<double>("a", a_, 0.1);
         priv_nh_.param<double>("Kx", Kx_, 1.0);
         priv_nh_.param<double>("Ky", Ky_, 1.0);
 
-        // priv_nh_.param<std::string>("turtle_topic", turtle_topic_, "/turtle1/pose");
-
-
+        priv_nh_.param<bool>("turtle_sim", use_turtle_sim_, false);
+        priv_nh_.param<std::string>("turtle_topic", turtle_topic_, "turtle1/pose");
 
         /*
          * Subscribers
@@ -131,7 +131,11 @@ public:
         // subscribe to the goal topic
         goal_sub_ = nh_.subscribe(goal_topic_, 1, &diff_controller::goalCallback, this);
 
-        // turtle_sub_ = nh_.subscribe(turtle_topic_, 1, &diff_controller::turtleCallback, this);
+        if (use_turtle_sim_)
+        {
+            // create subscriber to turtlesim pose topic
+            turtle_sub_ = nh_.subscribe(turtle_topic_, 1, &diff_controller::turtleCallback, this);
+        }
 
         /*
         * Publishers
@@ -139,22 +143,28 @@ public:
         cmd_vel_pub_ = nh_.advertise<geometry_msgs::Twist>(cmd_vel_topic_, 1);
     }
 
-    
+    /****************************************************************************
+    ** turtlesim Pose Message Callback *
+    *  @param msg: turtlesim::Pose message
+    *
+    *  This function is called whenever a new turtlesim::Pose message is received.
+    *  Gets information of the robot position from the turtlesim.
+    *  Used to simulate the robot behaviour using the turtlesim.
+    */
+    void turtleCallback(const turtlesim::Pose::ConstPtr& msg)
+    {
+        ROS_DEBUG("\nGetting Turtle Pose Message from %s...", turtle_topic_.c_str());
 
-    // void turtleCallback(const turtlesim::Pose::ConstPtr& msg)
-    // {
-    //     ROS_DEBUG("\nGetting Turtle Pose Message from %s...", turtle_topic_.c_str());
+        // save the message
+        turtle_pose_.x = msg->x;
+        turtle_pose_.y = msg->y;
+        turtle_pose_.theta = msg->theta;
+        turtle_pose_.linear_velocity = msg->linear_velocity;
+        turtle_pose_.angular_velocity = msg->angular_velocity;
 
-    //     // save the message
-    //     turtle_pose_.x = msg->x;
-    //     turtle_pose_.y = msg->y;
-    //     turtle_pose_.theta = msg->theta;
-    //     turtle_pose_.linear_velocity = msg->linear_velocity;
-    //     turtle_pose_.angular_velocity = msg->angular_velocity;
-
-    //     // add the message to an array of all messages
-    //     turtle_pose_list_.push_back(turtle_pose_);
-    // }
+        // add the message to an array of all messages
+        turtle_pose_list_.push_back(turtle_pose_);
+    }
 
     /****************************************************************************
     ** vrpn Twist Message Callback *
@@ -163,7 +173,7 @@ public:
     *  This function is called whenever a new vrpn twist message is received.
     *  Gets information of the robot position from the optitrack system.
     *  Used as reference to compare with the results from the slam_toolbox.
-     ****************************************************************************/
+    */
     void vrpnCallback(const geometry_msgs::PoseStamped::ConstPtr& msg)
     {
         ROS_DEBUG("\nGetting Twist Message from %s...", vrpn_topic_.c_str());
@@ -210,7 +220,6 @@ public:
 
         // add the message to an array of all messages
         slam_pose_list_.push_back(slam_pose_);
-
 
         // calculate the velocity commands
         this->calculateControlSignals(slam_pose_.pose.pose, goal_);
@@ -305,6 +314,10 @@ public:
 
         // save a file with all messages received and published and their timestamps
         this->saveMessagesToFile();
+
+        // shutdown the nodehandlers
+        nh_.shutdown();
+        priv_nh_.shutdown();
     }
 
 

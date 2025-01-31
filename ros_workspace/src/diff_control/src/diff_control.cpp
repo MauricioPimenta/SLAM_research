@@ -31,6 +31,7 @@ int main(int argc, char * argv[])
     // register SIGINT signal and signal handler
     signal(SIGINT, signalHandler);
 
+    // Initialize the ROS node without the ctrl+c handler so we can use our own
     ros::init(argc, argv, "diff_control", ros::init_options::NoSigintHandler);
     diff_controller controller = diff_controller();
 
@@ -38,10 +39,12 @@ int main(int argc, char * argv[])
     {
         ros::spinOnce();
 
+        // if ctrl+c is pressed, delete the controller object and break the loop
         if (signal_SIGINT)
         {
             std::cout << "Deleting the controller object..." << std::endl;
             delete &controller;
+            ros::shutdown();
             break;
         }
     }
