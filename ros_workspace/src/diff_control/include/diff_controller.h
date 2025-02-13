@@ -24,6 +24,7 @@
 #include <math.h>
 #include <string>
 
+#include <optional> // to use optional type
 
 /* ROS */
 #include <ros/ros.h>
@@ -37,8 +38,15 @@
 #include <turtlesim/Pose.h>
 
 /* tf is needed to convert quaternions to Euler and vice versa */
-#include <tf/tf.h>
-#include <tf2/convert.h>
+#include <tf2_ros/buffer.h>
+
+#include <tf2/utils.h>
+
+#include <tf2/LinearMath/Matrix3x3.h>   // tf2 library for Matrix3x3
+#include <tf2/LinearMath/Quaternion.h>  // tf2 library for Quaternions
+#include <tf2/LinearMath/Transform.h>   // tf2 library for Transforms
+
+#include <tf2_geometry_msgs/tf2_geometry_msgs.h> // to convert between tf2 and geometry_msgs
 
 
 class diff_controller
@@ -78,7 +86,7 @@ class diff_controller
     geometry_msgs::PoseStamped vrpn_twist_;
     geometry_msgs::PoseWithCovarianceStamped slam_pose_;
     geometry_msgs::Twist cmd_vel_;
-    geometry_msgs::Pose goal_;
+    std::optional<geometry_msgs::Pose> goal_;
 
     turtlesim::Pose turtle_pose_;
 
@@ -179,9 +187,14 @@ public:
         ROS_DEBUG("\nGetting Twist Message from %s...", vrpn_topic_.c_str());
 
         // save the message
+        vrpn_twist_.header.seq = msg->header.seq;
+        vrpn_twist_.header.stamp = msg->header.stamp;
+        vrpn_twist_.header.frame_id = msg->header.frame_id;
+
         vrpn_twist_.pose.position.x = msg->pose.position.x;
         vrpn_twist_.pose.position.y = msg->pose.position.y;
         vrpn_twist_.pose.position.z = msg->pose.position.z;
+
         vrpn_twist_.pose.orientation.x = msg->pose.orientation.x;
         vrpn_twist_.pose.orientation.y = msg->pose.orientation.y;
         vrpn_twist_.pose.orientation.z = msg->pose.orientation.z;
@@ -190,7 +203,15 @@ public:
         // add the message to an array of all messages
         vrpn_twist_list_.push_back(vrpn_twist_);
 
-        this->calculateControlSignals(vrpn_twist_.pose, goal_);
+        // check if the desired position was received
+        if (!goal_)
+        {
+            ROS_INFO("\nDesired Position not received yet...\n");
+            return;
+        }
+
+        // calculate the velocity commands
+        this->calculateControlSignals(vrpn_twist_.pose, goal_.value());
     }
 
     /****************************************************************************************
@@ -209,9 +230,11 @@ public:
         slam_pose_.header.seq = msg->header.seq;
         slam_pose_.header.stamp = msg->header.stamp;
         slam_pose_.header.frame_id = msg->header.frame_id;
+
         slam_pose_.pose.pose.position.x = msg->pose.pose.position.x;
         slam_pose_.pose.pose.position.y = msg->pose.pose.position.y;
         slam_pose_.pose.pose.position.z = msg->pose.pose.position.z;
+
         slam_pose_.pose.pose.orientation.x = msg->pose.pose.orientation.x;
         slam_pose_.pose.pose.orientation.y = msg->pose.pose.orientation.y;
         slam_pose_.pose.pose.orientation.z = msg->pose.pose.orientation.z;
@@ -221,8 +244,14 @@ public:
         // add the message to an array of all messages
         slam_pose_list_.push_back(slam_pose_);
 
+        // check if the desired position was received
+        if (!goal_)
+        {
+            ROS_INFO("\nDesired Position not received yet...\n");
+            return;
+        }
         // calculate the velocity commands
-        this->calculateControlSignals(slam_pose_.pose.pose, goal_);
+        this->calculateControlSignals(slam_pose_.pose.pose, goal_.value());
 
     }
 
@@ -238,16 +267,17 @@ public:
         ROS_DEBUG("\nGetting Goal Message from %s...", goal_topic_.c_str());
 
         // save the message
-        goal_.position.x = msg->position.x;
-        goal_.position.y = msg->position.y;
-        goal_.position.z = msg->position.z;
-        goal_.orientation.x = msg->orientation.x;
-        goal_.orientation.y = msg->orientation.y;
-        goal_.orientation.z = msg->orientation.z;
-        goal_.orientation.w = msg->orientation.w;
+        goal_ = *msg;
+        // goal_.position.x = msg->position.x;
+        // goal_.position.y = msg->position.y;
+        // goal_.position.z = msg->position.z;
+        // goal_.orientation.x = msg->orientation.x;
+        // goal_.orientation.y = msg->orientation.y;
+        // goal_.orientation.z = msg->orientation.z;
+        // goal_.orientation.w = msg->orientation.w;
 
         // add the message to an array of all messages
-        goal_list_.push_back(goal_);
+        goal_list_.push_back(goal_.value());
 
     }
 
@@ -260,38 +290,76 @@ public:
      *---------------------------------------------**/
     void calculateControlSignals(geometry_msgs::Pose last_position, geometry_msgs::Pose desired_position)
     {
+        
+        // Convert the orientation from quaternion to Euler angles using tf2
+        tf2::Quaternion last_pos_quat;
+        tf2::fromMsg(last_position.orientation, last_pos_quat);
+        tf2::Matrix3x3 last_position_rotation_matrix(last_pos_quat);
+
+        // Get the Euler angles
+        double pose_roll, pose_pitch, pose_yaw;
+        last_position_rotation_matrix.getRPY(pose_roll, pose_pitch, pose_yaw);
+
+        // Convert the desired orientation from quaternion to Euler angles
+        tf2::Quaternion des_pos_quat;
+        tf2::fromMsg(desired_position.orientation, des_pos_quat);
+        tf2::Matrix3x3 desired_position_rotation_matrix(des_pos_quat);
+
+        // Get the Euler angles
+        double des_roll, des_pitch, des_yaw;
+        desired_position_rotation_matrix.getRPY(des_roll, des_pitch, des_yaw);
+
+
+        // Print the rotation matrices
+        ROS_INFO("\n\nMatrix last_position_rotation_matrix: \n");
+        ROS_INFO("| %.4f  %.4f  %.4f | \n", last_position_rotation_matrix[0][0], last_position_rotation_matrix[0][1], last_position_rotation_matrix[0][2]);
+        ROS_INFO("| %.4f  %.4f  %.4f | \n", last_position_rotation_matrix[1][0], last_position_rotation_matrix[1][1], last_position_rotation_matrix[1][2]);
+        ROS_INFO("| %.4f  %.4f  %.4f | \n", last_position_rotation_matrix[2][0], last_position_rotation_matrix[2][1], last_position_rotation_matrix[2][2]);
+        ROS_INFO("\npose_roll: %.4f, pose_pitch: %.4f, pose_yaw: %.4f\n", pose_roll, pose_pitch, pose_yaw);
+
+        ROS_INFO("\n\nMatrix desired_position_rotation_matrix: \n");
+        ROS_INFO("| %.4f  %.4f  %.4f | \n", desired_position_rotation_matrix[0][0], desired_position_rotation_matrix[0][1], desired_position_rotation_matrix[0][2]);
+        ROS_INFO("| %.4f  %.4f  %.4f | \n", desired_position_rotation_matrix[1][0], desired_position_rotation_matrix[1][1], desired_position_rotation_matrix[1][2]);
+        ROS_INFO("| %.4f  %.4f  %.4f | \n", desired_position_rotation_matrix[2][0], desired_position_rotation_matrix[2][1], desired_position_rotation_matrix[2][2]);
+        ROS_INFO("\ndes_roll: %.4f, des_pitch: %.4f, des_yaw: %.4f\n", des_roll, des_pitch, des_yaw);
+
+
         double x = last_position.position.x;
         double y = last_position.position.y;
-        double theta = last_position.orientation.z;
+        double theta = pose_yaw;
 
         double x_d = desired_position.position.x;
         double y_d = desired_position.position.y;
-        double theta_d = desired_position.orientation.z;
+        double theta_d = des_yaw;
 
         // Erro de posicao
         double x_error = x_d - x;
         double y_error = y_d - y;
 
-        // Se a posicao desejada for alcancada
-        if (x_error < 0.01 && y_error < 0.01)
-        {
-            // zera os comandos de velocidade
-            cmd_vel_.linear.x = 0.0;
-            cmd_vel_.angular.z = 0.0;
-            cmd_vel_pub_.publish(cmd_vel_);
-            return;
-        }
+        // // Se a posicao desejada for alcancada
+        // if (x_error < 0.01 && y_error < 0.01)
+        // {
+        //     // zera os comandos de velocidade
+        //     cmd_vel_.linear.x = 0.0;
+        //     cmd_vel_.angular.z = 0.0;
+        //     cmd_vel_pub_.publish(cmd_vel_);
+        //     return;
+        // }
 
         // Velocidades desejadas
-        double Vxd = 1.0;
-        double Vyd = 1.0;
+        double Vxd = 1;
+        double Vyd = 1;
+
+        // Velocidades máximas
+        double vmax = 0.2;
+        double wmax = 0.2;
 
         // Calculo dos sinais de controle - velocidade linear e angular no eixo do robo
         double u = cos(theta) * (Vxd + this->Kx_*x_error) + sin(theta) *(Vyd + this->Ky_*y_error);
         double w = (1/this->a_)*(-sin(theta)*(Vxd + this->Kx_*x_error) + cos(theta)*(Vyd + this->Ky_*y_error));
 
-        cmd_vel_.linear.x = u;
-        cmd_vel_.angular.z = w;
+        cmd_vel_.linear.x = u*vmax;
+        cmd_vel_.angular.z = w*wmax;
 
         // publish the velocity commands
         cmd_vel_pub_.publish(cmd_vel_);

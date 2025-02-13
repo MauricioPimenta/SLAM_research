@@ -3,21 +3,22 @@
     {
       "browse": {
         "databaseFilename": "${default}",
-        "limitSymbolsToIncludedHeaders": false
+        "limitSymbolsToIncludedHeaders": true
       },
       "includePath": [
+        "${default}",
         "/home/mauricio-ros/Documents/SLAM_research/ros_workspace/devel/include/**",
-        "/home/maubp/Documents/SLAM_research/ros_workspace/devel/include/**",
+        //"/home/maubp/Documents/SLAM_research/ros_workspace/devel/include/**",
         "/opt/ros/noetic/include/**",
         "/home/mauricio-ros/Documents/SLAM_research/ros_workspace/src/slam_toolbox_lab-air/slam_toolbox/include/**",
-        "/home/maubp/Documents/SLAM_research/ros_workspace/src/slam_toolbox_lab-air/slam_toolbox/include/**",
+        //"/home/maubp/Documents/SLAM_research/ros_workspace/src/slam_toolbox_lab-air/slam_toolbox/include/**",
         "/usr/include/**"
       ],
       "name": "ROS",
       "intelliSenseMode": "gcc-x64",
       "compilerPath": "/usr/bin/gcc",
-      "cStandard": "gnu11",
-      "cppStandard": "c++14"
+      "cStandard": "c17",
+      "cppStandard": "c++20"
     }
   ],
   "version": 4

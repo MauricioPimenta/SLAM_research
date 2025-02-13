@@ -2,9 +2,10 @@
 <launch>
 
     <arg name="robot" default="L1" />
-    
+
     <!-- Run diff_control Node with gdb -->
-    <node pkg="diff_control" type="diff_control_node" name="diff_controller" output="screen" launch-prefix="x-terminal-emulator -e gdb --args">
+    
+    <node pkg="diff_control" type="diff_control_node" name="diff_controller" output="screen">
         <param name="vrpn_topic" value="/vrpn_client_node/$(arg robot)/pose" />
         <param name="pose_topic" value="/slam_toolbox/pose" />
         <param name="cmd_vel_topic" value="/$(arg robot)/cmd_vel" />
