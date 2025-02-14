@@ -358,8 +358,13 @@ public:
         double u = cos(theta) * (Vxd + this->Kx_*x_error) + sin(theta) *(Vyd + this->Ky_*y_error);
         double w = (1/this->a_)*(-sin(theta)*(Vxd + this->Kx_*x_error) + cos(theta)*(Vyd + this->Ky_*y_error));
 
-        cmd_vel_.linear.x = u*vmax;
-        cmd_vel_.angular.z = w*wmax;
+        // Set the velocity commands
+        cmd_vel_.linear.x = u;
+        cmd_vel_.angular.z = w;
+
+        // // Uses tanh to limit the values of the velocities
+        // cmd_vel_.linear.x = vmax*tanh(u);
+        // cmd_vel_.angular.z = wmax*tanh(w);
 
         // publish the velocity commands
         cmd_vel_pub_.publish(cmd_vel_);
