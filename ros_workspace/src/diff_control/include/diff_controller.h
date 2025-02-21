@@ -51,9 +51,31 @@
 
 class diff_controller
 {
-    private:
     /*
      * Private Atributes and Properties
+     */
+private:
+
+    /*
+     * Parameters
+     */
+    // parameters to configure the node - used in launch file
+    std::string vrpn_topic_;
+    std::string pose_topic_;
+    std::string cmd_vel_topic_;
+    std::string goal_topic_;
+
+    bool use_turtle_sim_;
+    std::string turtle_topic_;
+
+    // Controller Parameters
+    double a_;
+    double Kx_;
+    double Ky_;
+    double control_frequency_;
+
+    /*
+     * ROS Node Handlers, Publishers and Subscribers
      */
     ros::NodeHandle nh_;
     ros::NodeHandle priv_nh_;
@@ -62,29 +84,23 @@ class diff_controller
     ros::Subscriber goal_sub_;
     ros::Publisher cmd_vel_pub_;
 
+    ros::Publisher vrpn_cmd_vel_pub_;
+    ros::Publisher slam_cmd_vel_pub_;
+
     ros::Subscriber turtle_sub_;
 
+    ros::SteadyTimer slam_control_loop_timer_;
+    ros::SteadyTimer vrpn_control_loop_timer_;
+
     /*
-     * Parameters
+     * ROS Messages
      */
-        // parameters to configure the node - used in launch file
-        std::string vrpn_topic_;
-        std::string pose_topic_;
-        std::string cmd_vel_topic_;
-        std::string goal_topic_;
-
-        bool use_turtle_sim_;
-        std::string turtle_topic_;
-
-        // Controller Parameters
-        double a_;
-        double Kx_;
-        double Ky_;
-
-
-    // Messages used by the node
     geometry_msgs::PoseStamped vrpn_twist_;
+    geometry_msgs::Twist vrpn_cmd_vel_;
+
     geometry_msgs::PoseWithCovarianceStamped slam_pose_;
+    geometry_msgs::Twist slam_cmd_vel_;
+
     geometry_msgs::Twist cmd_vel_;
     std::optional<geometry_msgs::Pose> goal_;
 
@@ -92,7 +108,11 @@ class diff_controller
 
     // Arrays and Lists
     std::vector<geometry_msgs::PoseStamped> vrpn_twist_list_;
+    std::vector<geometry_msgs::Twist> vrpn_cmd_vel_list_;
+
     std::vector<geometry_msgs::PoseWithCovarianceStamped> slam_pose_list_;
+    std::vector<geometry_msgs::Twist> slam_cmd_vel_list_;
+
     std::vector<geometry_msgs::Twist> cmd_vel_list_;
     std::vector<geometry_msgs::Pose> goal_list_;
 
@@ -101,9 +121,7 @@ class diff_controller
     /*
      * Private Methods
      */
-    
-
-
+    // nothing here
 
 public:
     /*
@@ -125,8 +143,9 @@ public:
         priv_nh_.param<double>("a", a_, 0.1);
         priv_nh_.param<double>("Kx", Kx_, 1.0);
         priv_nh_.param<double>("Ky", Ky_, 1.0);
+        priv_nh_.param<double>("control_frequency", control_frequency_, 10.0);
 
-        priv_nh_.param<bool>("turtle_sim", use_turtle_sim_, false);
+        priv_nh_.param<bool>("use_turtle_sim", use_turtle_sim_, false);
         priv_nh_.param<std::string>("turtle_topic", turtle_topic_, "turtle1/pose");
 
         /*
@@ -149,6 +168,14 @@ public:
         * Publishers
         */
         cmd_vel_pub_ = nh_.advertise<geometry_msgs::Twist>(cmd_vel_topic_, 1);
+        vrpn_cmd_vel_pub_ = nh_.advertise<geometry_msgs::Twist>("vrpn_cmd_vel", 1);
+        slam_cmd_vel_pub_ = nh_.advertise<geometry_msgs::Twist>("slam_cmd_vel", 1);
+
+        // Start the timer that call the control loop
+        // the callback in this timer should publish the control signal (cmd_vel) for vrpn and slam_toolbox
+        ros::WallDuration control_interval = ros::WallDuration(1.0 / control_frequency_);
+        vrpn_control_loop_timer_ = nh_.createSteadyTimer(ros::WallDuration(control_interval), &diff_controller::vrpn_controlLoop, this);
+        slam_control_loop_timer_ = nh_.createSteadyTimer(ros::WallDuration(control_interval), &diff_controller::slam_controlLoop, this);
     }
 
     /****************************************************************************
@@ -211,7 +238,11 @@ public:
         }
 
         // calculate the velocity commands
-        this->calculateControlSignals(vrpn_twist_.pose, goal_.value());
+        this->calculateControlSignals(vrpn_twist_.pose, goal_.value(), &vrpn_cmd_vel_);
+
+        ROS_INFO("\n\n****** VRPN Control Signals: ******\n");
+        ROS_INFO("Linear Velocity: %.4f\n", vrpn_cmd_vel_.linear.x);
+        ROS_INFO("Angular Velocity: %.4f\n", vrpn_cmd_vel_.angular.z);
     }
 
     /****************************************************************************************
@@ -251,7 +282,11 @@ public:
             return;
         }
         // calculate the velocity commands
-        this->calculateControlSignals(slam_pose_.pose.pose, goal_.value());
+        this->calculateControlSignals(slam_pose_.pose.pose, goal_.value(), &slam_cmd_vel_);
+
+        ROS_INFO("\n\n====== SLAM_TOOLBOX Control Signals: ======\n");
+        ROS_INFO("Linear Velocity: %.4f\n", slam_cmd_vel_.linear.x);
+        ROS_INFO("Angular Velocity: %.4f\n", slam_cmd_vel_.angular.z);
 
     }
 
@@ -286,11 +321,12 @@ public:
      *?  Calculates the control signals to move the robot to the desired position.
      * @param last_position geometry_msgs::Pose
      * @param desired_position geometry_msgs::Pose
+     * @param cmd_vel geometry_msgs::Twist::Ptr - cmd_vel message to save the control signals
      * @return void
      *---------------------------------------------**/
-    void calculateControlSignals(geometry_msgs::Pose last_position, geometry_msgs::Pose desired_position)
+    void calculateControlSignals(geometry_msgs::Pose last_position, geometry_msgs::Pose desired_position, geometry_msgs::Twist *cmd_vel)
     {
-        
+
         // Convert the orientation from quaternion to Euler angles using tf2
         tf2::Quaternion last_pos_quat;
         tf2::fromMsg(last_position.orientation, last_pos_quat);
@@ -336,6 +372,10 @@ public:
         double x_error = x_d - x;
         double y_error = y_d - y;
 
+        ROS_WARN("\n\n x: %.4f, y: %.4f, theta: %.4f\n", x, y, theta);
+        ROS_WARN("x_d: %.4f, y_d: %.4f, theta_d: %.4f\n", x_d, y_d, theta_d);
+        ROS_WARN("x_error: %.4f, y_error: %.4f\n", x_error, y_error);
+
         // // Se a posicao desejada for alcancada
         // if (x_error < 0.01 && y_error < 0.01)
         // {
@@ -358,20 +398,45 @@ public:
         double u = cos(theta) * (Vxd + this->Kx_*x_error) + sin(theta) *(Vyd + this->Ky_*y_error);
         double w = (1/this->a_)*(-sin(theta)*(Vxd + this->Kx_*x_error) + cos(theta)*(Vyd + this->Ky_*y_error));
 
+        ROS_WARN("\n\n\nControl Signals Calculated...\n");
+        ROS_WARN("Linear Velocity: %.4f\n", u);
+        ROS_WARN("Angular Velocity: %.4f\n", w);
+
         // Set the velocity commands
-        cmd_vel_.linear.x = u;
-        cmd_vel_.angular.z = w;
+        cmd_vel->linear.x = u;
+        cmd_vel->angular.z = w;
+
+        ROS_ERROR("\n\n\nControl Signals Saved...\n");
+        ROS_ERROR("Linear Velocity: %.4f\n", cmd_vel->linear.x);
+        ROS_ERROR("Angular Velocity: %.4f\n", cmd_vel->angular.z);
 
         // // Uses tanh to limit the values of the velocities
-        // cmd_vel_.linear.x = vmax*tanh(u);
-        // cmd_vel_.angular.z = wmax*tanh(w);
+        // cmd_vel->linear.x = vmax*tanh(u);
+        // cmd_vel->angular.z = wmax*tanh(w);
+
+
+    }
+
+    void vrpn_controlLoop(const ros::SteadyTimerEvent&)
+    {
+        ROS_INFO("\nControl Loop Timer Callback...\n");
 
         // publish the velocity commands
-        cmd_vel_pub_.publish(cmd_vel_);
+        vrpn_cmd_vel_pub_.publish(vrpn_cmd_vel_);
 
         // add the message to an array of all messages
-        cmd_vel_list_.push_back(cmd_vel_);
+        vrpn_cmd_vel_list_.push_back(vrpn_cmd_vel_);
+    }
 
+    void slam_controlLoop(const ros::SteadyTimerEvent&)
+    {
+        ROS_INFO("\nControl Loop Timer Callback...\n");
+
+        // publish the velocity commands
+        slam_cmd_vel_pub_.publish(slam_cmd_vel_);
+
+        // add the message to an array of all messages
+        slam_cmd_vel_list_.push_back(slam_cmd_vel_);
     }
 
     // Destructor
@@ -445,13 +510,23 @@ public:
         file << "\n\n===============================================\n\n";
 
         // save the cmd_vel messages
-        file << "CMD_VEL Messages: \n";
-        for (int i = 0; i < cmd_vel_list_.size(); i++)
+        file << "\nVRPN_CMD_VEL Messages: \n";
+        for (int i = 0; i < vrpn_cmd_vel_list_.size(); i++)
         {
             file << "Message " << i << ": \n";
-            file << "Linear Velocity: " << cmd_vel_list_[i].linear.x << "\n";
-            file << "Angular Velocity: " << cmd_vel_list_[i].angular.z << "\n";
+            file << "Linear Velocity: " << vrpn_cmd_vel_list_[i].linear.x << "\n";
+            file << "Angular Velocity: " << vrpn_cmd_vel_list_[i].angular.z << "\n";
         }
+
+        // save the cmd_vel messages
+        file << "\nSLAM_CMD_VEL Messages: \n";
+        for (int i = 0; i < slam_cmd_vel_list_.size(); i++)
+        {
+            file << "Message " << i << ": \n";
+            file << "Linear Velocity: " << slam_cmd_vel_list_[i].linear.x << "\n";
+            file << "Angular Velocity: " << slam_cmd_vel_list_[i].angular.z << "\n";
+        }
+
 
         // close and save file
         file.close();
