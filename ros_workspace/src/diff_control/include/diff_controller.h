@@ -35,6 +35,8 @@
 #include <geometry_msgs/PoseStamped.h>
 #include <geometry_msgs/Pose.h>
 
+#include <gazebo_msgs/ModelStates.h>
+
 #include <turtlesim/Pose.h>
 
 /* tf is needed to convert quaternions to Euler and vice versa */
@@ -64,6 +66,7 @@ private:
     std::string pose_topic_;
     std::string cmd_vel_topic_;
     std::string goal_topic_;
+    std::string gazebo_topic_;
 
     bool use_turtle_sim_;
     std::string turtle_topic_;
@@ -82,6 +85,8 @@ private:
     ros::Subscriber vrpn_sub_;
     ros::Subscriber pose_sub_;
     ros::Subscriber goal_sub_;
+    ros::Subscriber gazebo_sub_;
+
     ros::Publisher cmd_vel_pub_;
 
     ros::Publisher vrpn_cmd_vel_pub_;
@@ -91,6 +96,7 @@ private:
 
     ros::SteadyTimer slam_control_loop_timer_;
     ros::SteadyTimer vrpn_control_loop_timer_;
+    ros::SteadyTimer control_loop_timer_;
 
     /*
      * ROS Messages
@@ -106,6 +112,11 @@ private:
 
     turtlesim::Pose turtle_pose_;
 
+    // Gazebo Messages
+    gazebo_msgs::ModelStates gazebo_Models_msg_;
+    geometry_msgs::Pose limo_gazebo_pose_;
+
+
     // Arrays and Lists
     std::vector<geometry_msgs::PoseStamped> vrpn_twist_list_;
     std::vector<geometry_msgs::Twist> vrpn_cmd_vel_list_;
@@ -117,6 +128,8 @@ private:
     std::vector<geometry_msgs::Pose> goal_list_;
 
     std::vector<turtlesim::Pose> turtle_pose_list_;
+
+    std::vector<geometry_msgs::Pose> limo_gazebo_poses_list_;
 
     /*
      * Private Methods
@@ -140,6 +153,9 @@ public:
         priv_nh_.param<std::string>("pose_topic", pose_topic_, "slam_toolbox/pose");
         priv_nh_.param<std::string>("cmd_vel_topic", cmd_vel_topic_, "cmd_vel");
         priv_nh_.param<std::string>("goal_topic", goal_topic_, "goal");
+        // gazebo topic param
+        priv_nh_.param<std::string>("gazebo_topic", gazebo_topic_, "gazebo/model_states");
+
         priv_nh_.param<double>("a", a_, 0.1);
         priv_nh_.param<double>("Kx", Kx_, 1.0);
         priv_nh_.param<double>("Ky", Ky_, 1.0);
@@ -157,6 +173,8 @@ public:
         pose_sub_ = nh_.subscribe(pose_topic_, 1, &diff_controller::slam_poseCallback, this);
         // subscribe to the goal topic
         goal_sub_ = nh_.subscribe(goal_topic_, 1, &diff_controller::goalCallback, this);
+
+        gazebo_sub_ = nh_.subscribe(gazebo_topic_, 1, &diff_controller::gazeboCallback, this);
 
         if (use_turtle_sim_)
         {
@@ -176,7 +194,45 @@ public:
         ros::WallDuration control_interval = ros::WallDuration(1.0 / control_frequency_);
         vrpn_control_loop_timer_ = nh_.createSteadyTimer(ros::WallDuration(control_interval), &diff_controller::vrpn_controlLoop, this);
         slam_control_loop_timer_ = nh_.createSteadyTimer(ros::WallDuration(control_interval), &diff_controller::slam_controlLoop, this);
+        control_loop_timer_ = nh_.createSteadyTimer(ros::WallDuration(control_interval), &diff_controller::publishControlSignals, this);
     }
+
+
+    /****************************************************************************************
+     * gazebo ModelStates Message Callback
+     * @param msg: gazebo ModelStates message
+     * 
+     * This function is called whenever a new gazebo ModelStates message is received.
+     * Gets information of the robot position from the gazebo.
+     * Used to simulate the robot behaviour using the gazebo.
+     */
+    void gazeboCallback(const gazebo_msgs::ModelStates::ConstPtr& msg)
+    {
+        ROS_DEBUG("\nGetting Gazebo ModelStates Message from %s...", gazebo_topic_.c_str());
+
+        // save the message
+        gazebo_Models_msg_ = *msg;
+
+        limo_gazebo_pose_ = gazebo_Models_msg_.pose[2];
+
+        // add the message to an array of all messages
+        // gazebo_Models_poses_list_.push_back(gazebo_Models_poses_);
+
+        // check if the desired position was received
+        if (!goal_)
+        {
+            ROS_INFO("\nDesired Position not received yet...\n");
+            return;
+        }
+
+        // calculate the velocity commands
+        this->calculateControlSignals(limo_gazebo_pose_, goal_.value(), &cmd_vel_);
+
+        ROS_INFO("\n\n****** Gazebo Control Signals: ******\n");
+        ROS_INFO("Linear Velocity: %.4f\n", cmd_vel_.linear.x);
+        ROS_INFO("Angular Velocity: %.4f\n", cmd_vel_.angular.z);
+    }
+
 
     /****************************************************************************
     ** turtlesim Pose Message Callback *
@@ -386,9 +442,9 @@ public:
         //     return;
         // }
 
-        // Velocidades desejadas
-        double Vxd = 1;
-        double Vyd = 1;
+        // Velocidades desejadas - should be zero for positioning
+        double Vxd = 0;
+        double Vyd = 0;
 
         // Velocidades máximas
         double vmax = 0.2;
@@ -415,6 +471,17 @@ public:
         // cmd_vel->angular.z = wmax*tanh(w);
 
 
+    }
+
+    void publishControlSignals(const ros::SteadyTimerEvent&)
+    {
+        ROS_INFO("\nControl Loop Timer Callback...\n");
+
+        // publish the velocity commands
+        cmd_vel_pub_.publish(cmd_vel_);
+
+        // add the message to an array of all messages
+        cmd_vel_list_.push_back(cmd_vel_);
     }
 
     void vrpn_controlLoop(const ros::SteadyTimerEvent&)
