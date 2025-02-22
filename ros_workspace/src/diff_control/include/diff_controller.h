@@ -21,7 +21,7 @@
 #include <iostream>
 #include <fstream>  // to use files
 #include <vector>
-#include <math.h>
+#include <cmath>
 #include <string>
 
 #include <optional> // to use optional type
@@ -432,23 +432,22 @@ public:
         ROS_WARN("x_d: %.4f, y_d: %.4f, theta_d: %.4f\n", x_d, y_d, theta_d);
         ROS_WARN("x_error: %.4f, y_error: %.4f\n", x_error, y_error);
 
-        // // Se a posicao desejada for alcancada
-        // if (x_error < 0.01 && y_error < 0.01)
-        // {
-        //     // zera os comandos de velocidade
-        //     cmd_vel_.linear.x = 0.0;
-        //     cmd_vel_.angular.z = 0.0;
-        //     cmd_vel_pub_.publish(cmd_vel_);
-        //     return;
-        // }
+        // Se a posicao desejada for alcancada
+        if (abs(x_error) < 0.01 && abs(y_error) < 0.01)
+        {
+            // zera os comandos de velocidade
+            cmd_vel_.linear.x = 0.0;
+            cmd_vel_.angular.z = 0.0;
+            return;
+        }
 
         // Velocidades desejadas - should be zero for positioning
         double Vxd = 0;
         double Vyd = 0;
 
         // Velocidades máximas
-        double vmax = 0.2;
-        double wmax = 0.2;
+        double vmax = 1;
+        double wmax = 1;
 
         // Calculo dos sinais de controle - velocidade linear e angular no eixo do robo
         double u = cos(theta) * (Vxd + this->Kx_*x_error) + sin(theta) *(Vyd + this->Ky_*y_error);
@@ -462,13 +461,14 @@ public:
         cmd_vel->linear.x = u;
         cmd_vel->angular.z = w;
 
+        // Uses tanh to limit the values of the velocities
+        cmd_vel->linear.x = vmax*tanh(u);
+        cmd_vel->angular.z = wmax*tanh(w);
+
+
         ROS_ERROR("\n\n\nControl Signals Saved...\n");
         ROS_ERROR("Linear Velocity: %.4f\n", cmd_vel->linear.x);
         ROS_ERROR("Angular Velocity: %.4f\n", cmd_vel->angular.z);
-
-        // // Uses tanh to limit the values of the velocities
-        // cmd_vel->linear.x = vmax*tanh(u);
-        // cmd_vel->angular.z = wmax*tanh(w);
 
 
     }

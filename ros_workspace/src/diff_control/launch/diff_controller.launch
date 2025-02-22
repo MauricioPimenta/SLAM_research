@@ -1,15 +1,15 @@
 <?xml version="1.0"?>
 <launch>
 
-    <arg name="robot" default="L1" />
+    <arg name="robot" default="" />
 
     <!-- Run diff_control Node with gdb -->
     
     <node pkg="diff_control" type="diff_control_node" name="diff_controller" output="screen">
-        <param name="vrpn_topic" value="/vrpn_client_node/$(arg robot)/pose" />
-        <param name="pose_topic" value="/slam_toolbox/pose" />
-        <param name="cmd_vel_topic" value="/$(arg robot)/cmd_vel" />
-        <param name="goal_topic" value="/$(arg robot)/goal" />
+        <param name="vrpn_topic" value="vrpn_client_node/$(arg robot)/pose" />
+        <param name="pose_topic" value="slam_toolbox/pose" />
+        <param name="cmd_vel_topic" value="$(arg robot)/cmd_vel" />
+        <param name="goal_topic" value="$(arg robot)/goal" />
         
         <!-- TurtleSim Parameters -->
         <param name="use_turtle_sim" value="false" />
