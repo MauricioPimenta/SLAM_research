@@ -22,17 +22,17 @@
 
     <node pkg="gazebo_ros" type="spawn_model" name="spawn_urdf"  args="-urdf -model limo_$(arg model) -x $(arg x_pos) -y $(arg y_pos) -z $(arg z_pos) -param robot_description" />
 
-    
+
     <node pkg="diff_control" type="diff_control_node" name="diff_controller" output="screen">
         <param name="vrpn_topic" value="/vrpn_client_node/$(arg robot)/pose" />
         <param name="pose_topic" value="/slam_toolbox/pose" />
         <param name="cmd_vel_topic" value="/$(arg robot)/cmd_vel" />
         <param name="goal_topic" value="/$(arg robot)/goal" />
-        
+
         <!-- TurtleSim Parameters -->
         <param name="use_turtle_sim" value="false" />
         <param name="turtle_topic" value="turtle1/pose" />
-        
+
         <!-- Controller Parameters -->
         <param name="a" value="0.1" />
         <param name="Kx" value="1.0" />
