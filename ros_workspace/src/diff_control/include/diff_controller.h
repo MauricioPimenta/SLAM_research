@@ -64,7 +64,11 @@ private:
     // parameters to configure the node - used in launch file
     std::string vrpn_topic_;
     std::string pose_topic_;
+
     std::string cmd_vel_topic_;
+    std::string vrpn_cmd_vel_topic_;
+    std::string slam_cmd_vel_topic_;
+
     std::string goal_topic_;
     std::string gazebo_topic_;
 
@@ -152,6 +156,8 @@ public:
         priv_nh_.param<std::string>("vrpn_topic", vrpn_topic_, "vrpn_client_node/L1/pose");
         priv_nh_.param<std::string>("pose_topic", pose_topic_, "slam_toolbox/pose");
         priv_nh_.param<std::string>("cmd_vel_topic", cmd_vel_topic_, "cmd_vel");
+        priv_nh_.param<std::string>("vrpn_cmd_vel_topic", vrpn_cmd_vel_topic_, "vrpn_cmd_vel");
+        priv_nh_.param<std::string>("slam_cmd_vel_topic", slam_cmd_vel_topic_, "slam_cmd_vel");
         priv_nh_.param<std::string>("goal_topic", goal_topic_, "goal");
         // gazebo topic param
         priv_nh_.param<std::string>("gazebo_topic", gazebo_topic_, "gazebo/model_states");
@@ -186,8 +192,8 @@ public:
         * Publishers
         */
         cmd_vel_pub_ = nh_.advertise<geometry_msgs::Twist>(cmd_vel_topic_, 1);
-        vrpn_cmd_vel_pub_ = nh_.advertise<geometry_msgs::Twist>("vrpn_cmd_vel", 1);
-        slam_cmd_vel_pub_ = nh_.advertise<geometry_msgs::Twist>("slam_cmd_vel", 1);
+        vrpn_cmd_vel_pub_ = nh_.advertise<geometry_msgs::Twist>(vrpn_cmd_vel_topic_, 1);
+        slam_cmd_vel_pub_ = nh_.advertise<geometry_msgs::Twist>(slam_cmd_vel_topic_, 1);
 
         // Start the timer that call the control loop
         // the callback in this timer should publish the control signal (cmd_vel) for vrpn and slam_toolbox
@@ -433,11 +439,11 @@ public:
         ROS_WARN("x_error: %.4f, y_error: %.4f\n", x_error, y_error);
 
         // Se a posicao desejada for alcancada
-        if (abs(x_error) < 0.01 && abs(y_error) < 0.01)
+        if (abs(x_error) < 0.1 && abs(y_error) < 0.1)
         {
             // zera os comandos de velocidade
-            cmd_vel_.linear.x = 0.0;
-            cmd_vel_.angular.z = 0.0;
+            cmd_vel->linear.x = 0.0;
+            cmd_vel->angular.z = 0.0;
             return;
         }
 

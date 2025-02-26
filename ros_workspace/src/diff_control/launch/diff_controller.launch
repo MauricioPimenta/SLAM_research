@@ -2,24 +2,39 @@
 <launch>
 
     <arg name="robot" default="" />
+    <arg name="cmd_vel_topic" default="$(arg robot)/cmd_vel" />
+    <arg name="goal_topic" default="$(arg robot)/goal" />
+    <arg name="vrpn_cmd_vel_topic" default="$(arg robot)/vrpn_cmd_vel" />
+    <arg name="slam_cmd_vel_topic" default="$(arg robot)/slam_cmd_vel" />
 
     <!-- Run diff_control Node with gdb -->
     
     <node pkg="diff_control" type="diff_control_node" name="diff_controller" output="screen">
         <param name="vrpn_topic" value="vrpn_client_node/$(arg robot)/pose" />
         <param name="pose_topic" value="slam_toolbox/pose" />
-        <param name="cmd_vel_topic" value="$(arg robot)/cmd_vel" />
         <param name="goal_topic" value="$(arg robot)/goal" />
+
+        <param name="cmd_vel_topic" value="$(arg cmd_vel_topic)" />
+        <param name="vrpn_cmd_vel_topic" value="$(arg vrpn_cmd_vel_topic)" />
+        <param name="slam_cmd_vel_topic" value="$(arg slam_cmd_vel_topic)" />
         
         <!-- TurtleSim Parameters -->
         <param name="use_turtle_sim" value="false" />
         <param name="turtle_topic" value="turtle1/pose" />
         
         <!-- Controller Parameters -->
-        <param name="a" value="0.1" />
+        <param name="a" value="0.5" />
         <param name="Kx" value="1.0" />
         <param name="Ky" value="1.0" />
         <param name="control_frequency" value="10.0" />
+    </node>
+
+    <!-- Start the path planner node -->
+    <node pkg="diff_control" type="path_planner_node" name="path_planner" output="screen">
+        <rosparam command="load" file="$(find diff_control)/config/path_positions.yaml"/>
+        <param name="goal_topic_name" value="$(arg goal_topic)" />
+        
+
     </node>
 
 </launch>
