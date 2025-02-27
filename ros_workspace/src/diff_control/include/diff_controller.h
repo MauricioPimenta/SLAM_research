@@ -112,7 +112,7 @@ private:
     geometry_msgs::Twist slam_cmd_vel_;
 
     geometry_msgs::Twist cmd_vel_;
-    std::optional<geometry_msgs::Pose> goal_;
+    std::optional<geometry_msgs::PoseStamped> goal_;
 
     turtlesim::Pose turtle_pose_;
 
@@ -359,7 +359,7 @@ public:
      *? This function is called whenever a new goal message is received.
      *? Gets the desired position of the robot.
      */
-    void goalCallback(const geometry_msgs::Pose::ConstPtr& msg)
+    void goalCallback(const geometry_msgs::PoseStamped::ConstPtr& msg)
     {
         ROS_DEBUG("\nGetting Goal Message from %s...", goal_topic_.c_str());
 
@@ -386,7 +386,7 @@ public:
      * @param cmd_vel geometry_msgs::Twist::Ptr - cmd_vel message to save the control signals
      * @return void
      *---------------------------------------------**/
-    void calculateControlSignals(geometry_msgs::Pose last_position, geometry_msgs::Pose desired_position, geometry_msgs::Twist *cmd_vel)
+    void calculateControlSignals(geometry_msgs::Pose last_position, geometry_msgs::PoseStamped desired_position, geometry_msgs::Twist *cmd_vel)
     {
 
         // Convert the orientation from quaternion to Euler angles using tf2

@@ -40,6 +40,8 @@
 
 #include <ros/ros.h>
 
+#include <geometry_msgs/PoseStamped.h>
+
 
 class path_planner
 {
@@ -134,10 +136,49 @@ public:
 
     }
 
+    // Publish the points from the path to the goal topic
     void publishGoal(const ros::TimerEvent&)
     {
-        // Publish the points from the path to the goal topic
-        
+
+        // Static variables to keep track of the current path and point
+        static int current_path = 0;
+        static int current_point = 0;
+
+        // Check if the current path is valid
+        if (current_path >= paths_.size())
+        {
+            ROS_INFO("All paths have been published.");
+            return;
+        }
+
+        // Check if the current point is valid
+        if (current_point >= paths_[current_path].points.size())
+        {
+            ROS_INFO("All points in path %d have been published.", current_path);
+            current_path++;
+            current_point = 0;
+            return;
+        }
+
+        // Publish the current point as the goal
+        ROS_INFO("Publishing goal point %d in path %d", current_point, current_path);
+        // Publish the goal point
+        // Publish the goal point
+        geometry_msgs::PoseStamped goal_msg;
+        goal_msg.header.frame_id = frame_id_;
+        goal_msg.header.stamp = ros::Time::now();
+        goal_msg.pose.position.x = paths_[current_path].points[current_point].position[0];
+        goal_msg.pose.position.y = paths_[current_path].points[current_point].position[1];
+        goal_msg.pose.position.z = paths_[current_path].points[current_point].position[2];
+        goal_msg.pose.orientation.x = 0.0;
+        goal_msg.pose.orientation.y = 0.0;
+        goal_msg.pose.orientation.z = 0.0;
+        goal_msg.pose.orientation.w = 1.0;
+
+        // Publish the goal
+        goal_pub_.publish(goal_msg);
+
+
     }
 
     /**-----------------------------------------------------------------------------------------------------------------------
@@ -197,6 +238,12 @@ private:
     ros::NodeHandle priv_nh_;
 
     ros::Timer publisher_timer_;
+
+    // Messages
+    ros::geometry_msgs::PoseStamped goal_msg_;
+
+    // Publishers
+    ros::Publisher goal_pub_;
 
     // Parameters
     std::string frame_id_;
