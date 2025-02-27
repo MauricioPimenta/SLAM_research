@@ -1,5 +1,6 @@
 name: path_positions
 frame_id: world_frame
+path_type: LINEAR
 num_points: 9
 
 points:
