@@ -59,81 +59,101 @@ class DiffController
 private:
 
     /*
-     * Parameters
+     * Node Parameters
      */
-    // parameters to configure the node - used in launch file
-    std::string vrpn_topic_;
-    std::string pose_topic_;
 
-    std::string cmd_vel_topic_;
-    std::string vrpn_cmd_vel_topic_;
-    std::string slam_cmd_vel_topic_;
+    std::string vrpn_topic_;        // topic name for the vrpn twist messages
+    std::string pose_topic_;        // topic name for the pose messages from the slam_toolbox
 
-    std::string goal_topic_;
-    std::string gazebo_topic_;
+    std::string cmd_vel_topic_;     // topic name for the velocity commands
+    std::string vrpn_cmd_vel_topic_;    // topic name for the velocity commands for the vrpn
+    std::string slam_cmd_vel_topic_;    // topic name for the velocity commands for the slam_toolbox
 
-    bool use_turtle_sim_;
-    std::string turtle_topic_;
+    std::string goal_topic_;        // topic name for the desired position
+    std::string gazebo_topic_;      // topic name for the gazebo model states
 
-    // Controller Parameters
+    bool use_turtle_sim_;           // flag to use the turtle simulator
+    std::string turtle_topic_;      // topic name for the turtle pose messages
+
+    /*
+     * Controller Parameters
+     */
+
+    // offset from the robot center that defines the point for control
+    //   If a_ = 0, then the control point is the center of the robot
     double a_;
-    double Kx_;
-    double Ky_;
+
+    // gains for the controller
+    double Kx_;     // gain applied to the x_error
+    double Ky_;    // gain applied to the y_error
+
+    // Desired Velocities
+    // For positioning control, these should be zero.
+    // For velocity control, these should be the desired velocities of the trajectory
+    double x_desired_velocity_;
+    double y_desired_velocity_;
+
+    double max_linear_velocity_;    // The desired maximum linear velocity the robot should perform
+    double max_angular_velocity_;   // The desired maximum angular velocity the robot shold perform
+
+    // The frequency to publish the control signals.
     double control_frequency_;
 
     /*
      * ROS Node Handlers, Publishers and Subscribers
      */
-    ros::NodeHandle nh_;
-    ros::NodeHandle priv_nh_;
-    ros::Subscriber vrpn_sub_;
-    ros::Subscriber pose_sub_;
-    ros::Subscriber goal_sub_;
-    ros::Subscriber gazebo_sub_;
+    ros::NodeHandle nh_;        // public node handler
+    ros::NodeHandle priv_nh_;   // private node handler
+    ros::Subscriber vrpn_sub_;  // subscriber to the vrpn twist topic
+    ros::Subscriber pose_sub_;  // subscriber to the pose topic from the slam_toolbox
+    ros::Subscriber goal_sub_;  // subscriber to the goal topic
+    ros::Subscriber gazebo_sub_;    // subscriber to the gazebo model states
 
-    ros::Publisher cmd_vel_pub_;
+    ros::Publisher cmd_vel_pub_;    // publisher for the velocity commands
 
-    ros::Publisher vrpn_cmd_vel_pub_;
-    ros::Publisher slam_cmd_vel_pub_;
+    ros::Publisher vrpn_cmd_vel_pub_;   // publisher for the velocity commands for the vrpn
+    ros::Publisher slam_cmd_vel_pub_;   // publisher for the velocity commands for the slam_toolbox
 
-    ros::Subscriber turtle_sub_;
+    ros::Subscriber turtle_sub_;        // subscriber to the turtle pose topic
 
-    ros::SteadyTimer slam_control_loop_timer_;
-    ros::SteadyTimer vrpn_control_loop_timer_;
-    ros::SteadyTimer control_loop_timer_;
+    ros::SteadyTimer slam_control_loop_timer_;  // timer for the control loop for the slam_toolbox cmd_vel
+    ros::SteadyTimer vrpn_control_loop_timer_;  // timer for the control loop that publishes the vrpn_cmd_vel
+    ros::SteadyTimer control_loop_timer_;       // timer for the control loop that publish in cmd_vel
 
     /*
      * ROS Messages
      */
-    geometry_msgs::PoseStamped vrpn_twist_;
-    geometry_msgs::Twist vrpn_cmd_vel_;
+    geometry_msgs::PoseStamped vrpn_twist_;     // vrpn twist message
+    geometry_msgs::Twist vrpn_cmd_vel_;         // vrpn velocity command
 
-    geometry_msgs::PoseWithCovarianceStamped slam_pose_;
-    geometry_msgs::Twist slam_cmd_vel_;
+    geometry_msgs::PoseWithCovarianceStamped slam_pose_;    // pose message from the slam_toolbox
+    geometry_msgs::Twist slam_cmd_vel_;                     // slam_toolbox velocity command
 
-    geometry_msgs::Twist cmd_vel_;
-    std::optional<geometry_msgs::PoseStamped> goal_;
+    geometry_msgs::Twist cmd_vel_;    // message use for the velocity command published in cmd_vel
+    std::optional<geometry_msgs::PoseStamped> goal_;    // goal message type - this is optional because the goal may not be received
 
-    turtlesim::Pose turtle_pose_;
+    turtlesim::Pose turtle_pose_;   // turtle pose message
 
     // Gazebo Messages
-    gazebo_msgs::ModelStates gazebo_Models_msg_;
-    geometry_msgs::Pose limo_gazebo_pose_;
+    gazebo_msgs::ModelStates gazebo_Models_msg_;    // gazebo ModelStates message - to get the positions from the models inside the gazebo
+    geometry_msgs::Pose limo_gazebo_pose_;          // Pose message to save the robot position from gazebo
 
 
-    // Arrays and Lists
-    std::vector<geometry_msgs::PoseStamped> vrpn_twist_list_;
-    std::vector<geometry_msgs::Twist> vrpn_cmd_vel_list_;
+    /*
+     * Arrays and Lists
+     */
+    std::vector<geometry_msgs::PoseStamped> vrpn_twist_list_;       // list to record all messages received from the vrpn topic
+    std::vector<geometry_msgs::Twist> vrpn_cmd_vel_list_;           // list to record all velocity commands generated using the vrpn poses to calculate the control
 
-    std::vector<geometry_msgs::PoseWithCovarianceStamped> slam_pose_list_;
-    std::vector<geometry_msgs::Twist> slam_cmd_vel_list_;
+    std::vector<geometry_msgs::PoseWithCovarianceStamped> slam_pose_list_;  // list to record all messages received from the slam_toolbox topic
+    std::vector<geometry_msgs::Twist> slam_cmd_vel_list_;                   // list to record all velocity commands generated using the slam_toolbox poses to calculate the control
 
-    std::vector<geometry_msgs::Twist> cmd_vel_list_;
-    std::vector<geometry_msgs::PoseStamped> goal_list_;
+    std::vector<geometry_msgs::Twist> cmd_vel_list_;        // list to record all velocity commands published in the cmd_vel topic
+    std::vector<geometry_msgs::PoseStamped> goal_list_;     // list to record all goal messages received
 
-    std::vector<turtlesim::Pose> turtle_pose_list_;
+    std::vector<turtlesim::Pose> turtle_pose_list_;         // list to record all turtle pose messages received
 
-    std::vector<geometry_msgs::Pose> limo_gazebo_poses_list_;
+    std::vector<geometry_msgs::Pose> limo_gazebo_poses_list_;   // list to record all robot positions received from gazebo
 
     /*
      * Private Methods
@@ -448,12 +468,12 @@ public:
         // }
 
         // Velocidades desejadas - should be zero for positioning
-        double Vxd = 0;
-        double Vyd = 0;
+        double Vxd = x_desired_velocity_;
+        double Vyd = y_desired_velocity_;
 
         // Velocidades máximas
-        double vmax = 1;
-        double wmax = 2;
+        double vmax = max_linear_velocity_;
+        double wmax = max_angular_velocity;
 
         // Calculo dos sinais de controle - velocidade linear e angular no eixo do robo
         double u = cos(theta) * (Vxd + this->Kx_*x_error) + sin(theta) *(Vyd + this->Ky_*y_error);

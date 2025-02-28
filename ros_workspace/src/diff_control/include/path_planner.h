@@ -51,22 +51,88 @@ public:
         /*
          * get the parameters from the parameter server
         */
+        loadCommonParameters();
+        
+        // Load the parameters from the .yaml file
+        loadPathFromYaml();
+        
+        // generate trajectory from loaded points
+        if (path_type_ == "LINEAR")
+        {
+            createLinearPath();
+        }
+        else if (path_type_ == "LEMNISCATA")
+        {
+            loadLemniscataParameters();
+            createLemniscataPath(R_, w_);
+        }
+        else
+        {
+            ROS_ERROR("Invalid path type: %s", path_type_.c_str());
+        }
+
+        // Display the generated paths
+        ROS_INFO("Generated %ld paths:", paths_.size());
+        for (const auto& path : paths_)
+        {
+            ROS_INFO("Path from [%.2f, %.2f, %.2f] to [%.2f, %.2f, %.2f] with %d points",
+                     path.start_point.position[0], path.start_point.position[1], path.start_point.position[2],
+                     path.end_point.position[0], path.end_point.position[1], path.end_point.position[2],
+                     path.num_points);
+        }
+
+        // Create a publisher to publish the goal points
+        goal_pub_ = nh_.advertise<geometry_msgs::PoseStamped>(goal_topic_name_, 1);
+        // Create a timer to publish the one point of the path as the goal each time it is called
+        ros::Duration time_to_publish_goal = ros::Duration(1.0 / frequency_to_publish_goal_);
+        publisher_timer_ = nh_.createTimer(time_to_publish_goal, &PathPlanner::publishGoal, this);
+
+    }
+
+    PathPlanner(std::string path_type) : nh_(""), priv_nh_("~")
+    {
+        loadCommonParameters();
+
+        if (path_type == "LINEAR")
+        {
+            loadPathFromYaml();
+            createLinearPath();
+        }
+        else if (path_type == "LEMNISCATA")
+        {
+            createLemniscataPath(R_, w_);
+        }
+        else
+        {
+            ROS_ERROR("Invalid path type: %s", path_type.c_str());
+        }
+    }
+
+    void loadCommonParameters()
+    {
+        /*
+         * get the parameters from the parameter server
+        */
         priv_nh_.param<double>("desired_vel", desired_velocity_, 0.5 /* m/s */);
         priv_nh_.param<double>("pub_frequency", frequency_to_publish_goal_, 60.0 /* Hz */);
 
         priv_nh_.param<double>("path_resolution", path_resolution_, desired_velocity_ / frequency_to_publish_goal_);
         priv_nh_.param<std::string>("goal_topic_name", goal_topic_name_, "/goal");
 
+    }
+
+    void loadPathFromYaml()
+    {
         // Retrieve simple parameters
         std::string name;
         std::string frame_id;
         int num_points;
-        std::string path_type;
+        std::string path_type_;
 
         priv_nh_.getParam("name", name);
         priv_nh_.getParam("frame_id", frame_id);
         priv_nh_.getParam("num_points", num_points);
-        priv_nh_.getParam("path_type", path_type);
+        priv_nh_.getParam("path_type", path_type_);
 
         ROS_INFO("Path Name: %s", name.c_str());
         ROS_INFO("Frame ID: %s", frame_id.c_str());
@@ -118,28 +184,16 @@ public:
             return;
         }
 
-        // generate trajectory from loaded points
-        if (path_type == "LINEAR")
-        {
-            createLinearPath();
-        }
+    }
 
-        // Display the generated paths
-        ROS_INFO("Generated %ld paths:", paths_.size());
-        for (const auto& path : paths_)
-        {
-            ROS_INFO("Path from [%.2f, %.2f, %.2f] to [%.2f, %.2f, %.2f] with %d points",
-                     path.start_point.position[0], path.start_point.position[1], path.start_point.position[2],
-                     path.end_point.position[0], path.end_point.position[1], path.end_point.position[2],
-                     path.num_points);
-        }
+    void loadLemniscataParameters()
+    {
+        // Retrieve simple parameters
+        priv_nh_.param<double>("R", R_, 1.0);
+        priv_nh_.param<double>("w", w_, 2*M_PI/40);
+        priv_nh_.param<double>("tempo_experimento", time_of_experiment_, 60.0 /* seconds */);
 
-        // Create a publisher to publish the goal points
-        goal_pub_ = nh_.advertise<geometry_msgs::PoseStamped>(goal_topic_name_, 1);
-        // Create a timer to publish the one point of the path as the goal each time it is called
-        ros::Duration time_to_publish_goal = ros::Duration(1.0 / frequency_to_publish_goal_);
-        publisher_timer_ = nh_.createTimer(time_to_publish_goal, &PathPlanner::publishGoal, this);
-
+        ROS_INFO("Lemniscata Parameters: R = %.2f, w = %.2f", R_, w_);
     }
 
 
@@ -193,8 +247,8 @@ public:
      *?  The linear path is a straight line between the points.
      *?  If more than two points are given, create a list of linear paths created with each subsequent points as the start and end
      *?  points of a path.
-     *@param none none  
-     *@param none none  
+     *@param none none
+     *@param none none
      *@return void
      *-----------------------------------------------------------------------------------------------------------------------**/
     void createLinearPath()
@@ -242,10 +296,45 @@ public:
         }
     }
 
+    /**-----------------------------------------------------------------------------------------------------------------------
+     **                                                  createLemniscataPath
+     *?  Create a 2D Lemniscata Path.
+     *?  The Lemniscata path is a infinity or '8' figure, described by the equation:
+     *?  (x^2 + y^2)^2 = a^2*(x^2 - y^2)
+     *?  The Lemniscata path is a curve that can be described by the equation:
+     *?  x(t) = a*cos(t) / (1 + sin^2(t)) ; y(t) = a*sin(t)*cos(t) / (1 + sin^2(t))
+     *
+     *@param none none
+     *@param none none
+     *@return void
+     *-----------------------------------------------------------------------------------------------------------------------**/
+    void createLemniscataPath(double R, double w)
+    {
+        // trajetoria em lemniscata:
+        // Xd = Rcos(wt)
+        // Yd = Rsin(2wt)
+        // dXd = -Rw*sin(wt)
+        // dYd = 2Rw*cos(2wt)
+        // w = 2*pi/40
+
+        // Create all the points in the lemniscata path and add them to the list of paths
+        Path temp_path;
+        temp_path.path_type = LEMNISCATA;
+        temp_path.start_point.position = {R*cos(0), R*sin(0), 0.0};
+        temp_path.start_point.desired_velocity = desired_velocity_;
+
+        temp_path.end_point.position = {R*cos(time_of_experiment_*w), R*sin(2*time_of_experiment_*w), 0.0};
+        temp_path.end_point.desired_velocity = 0.0;
+
+        // Populate the points in the path using the resolution and the time of the experiment
+
+
+
+    }
 
     ~PathPlanner()
     {
-        std::cout << "\n\n\nShutting down the Path Planner Node...\n\n\n" << std::endl;
+        std::cout << "\n\t.\n\t.\n\t.\nShutting down the Path Planner Node...\n\t.\n\t.\n\t." << std::endl;
 
         // shutdown the nodehandlers
         nh_.shutdown();
@@ -264,7 +353,10 @@ private:
     // Publishers
     ros::Publisher goal_pub_;
 
-    // Parameters
+    /*
+     * Parameters
+     */
+    std::string path_type_;
     std::string frame_id_;
     int num_points_;
     std::vector<std::vector<double>> points_;
@@ -278,6 +370,10 @@ private:
     std::string goal_topic_name_;
 
 
+    // Lemniscata Parameters
+    double R_;
+    double w_;
+    double time_of_experiment_;
 
 
     // Path type will determine how the goal points will be generated
@@ -286,7 +382,10 @@ private:
         LINEAR,     // Linear paths - straight lines - x(t) = (1-t)*P + t*Q ; P and Q are the points
         BEZIER,     // Bezier paths - x(t) = (1-t)^3*P + 3(1-t)^2*t*Q + 3(1-t)*t^2*R + t^3*S ; P, Q, R and S are the points
         CUBIC,      // Cubic paths - x(t) = (1-t)^3*P + 3(1-t)^2*t*Q + 3(1-t)*t^2*R + t^3*S ; P, Q, R and S are the points
-        QUINTIC     // Quintic paths - x(t) = a0 + a1*t + a2*t^2 + a3*t^3 + a4*t^4 + a5*t^5 ; a0, a1, a2, a3, a4 and a5 are the coefficients
+        QUINTIC,     // Quintic paths - x(t) = a0 + a1*t + a2*t^2 + a3*t^3 + a4*t^4 + a5*t^5 ; a0, a1, a2, a3, a4 and a5 are the coefficients
+        CIRCULAR,
+        SPIRAL,
+        LEMNISCATA
     };
 
     // This struct define the points in the path.
