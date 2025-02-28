@@ -43,15 +43,19 @@
 #include <geometry_msgs/PoseStamped.h>
 
 
-class path_planner
+class PathPlanner
 {
 public:
-    path_planner() : nh_(""), priv_nh_("~")
+    PathPlanner() : nh_(""), priv_nh_("~")
     {
-        // get the parameters from the parameter server
-        priv_nh_.param<std::string>("frame_id", frame_id_, "world_frame");
-        priv_nh_.param<int>("num_points", num_points_, 0);
-        priv_nh_.param<double>("desired_velocity", desired_velocity_, 0.5);
+        /*
+         * get the parameters from the parameter server
+        */
+        priv_nh_.param<double>("desired_vel", desired_velocity_, 0.5 /* m/s */);
+        priv_nh_.param<double>("pub_frequency", frequency_to_publish_goal_, 60.0 /* Hz */);
+
+        priv_nh_.param<double>("path_resolution", path_resolution_, desired_velocity_ / frequency_to_publish_goal_);
+        priv_nh_.param<std::string>("goal_topic_name", goal_topic_name_, "/goal");
 
         // Retrieve simple parameters
         std::string name;
@@ -130,54 +134,56 @@ public:
                      path.num_points);
         }
 
+        // Create a publisher to publish the goal points
+        goal_pub_ = nh_.advertise<geometry_msgs::PoseStamped>(goal_topic_name_, 1);
         // Create a timer to publish the one point of the path as the goal each time it is called
         ros::Duration time_to_publish_goal = ros::Duration(1.0 / frequency_to_publish_goal_);
-        publisher_timer_ = nh_.createTimer(time_to_publish_goal, &path_planner::publishGoal, this);
+        publisher_timer_ = nh_.createTimer(time_to_publish_goal, &PathPlanner::publishGoal, this);
 
     }
+
 
     // Publish the points from the path to the goal topic
     void publishGoal(const ros::TimerEvent&)
     {
-
         // Static variables to keep track of the current path and point
         static int current_path = 0;
         static int current_point = 0;
 
-        // Check if the current path is valid
-        if (current_path >= paths_.size())
+        if (current_path < paths_.size() && current_point < paths_[current_path].points.size())
         {
-            ROS_INFO("All paths have been published.");
-            return;
+            // Publish the current point as the goal
+            ROS_INFO("Publishing goal point %d in path %d", current_point, current_path);
+
+            // Publish the goal point
+            geometry_msgs::PoseStamped goal_msg;
+            goal_msg.header.frame_id = frame_id_;
+            goal_msg.header.stamp = ros::Time::now();
+            goal_msg.pose.position.x = paths_[current_path].points[current_point].position[0];
+            goal_msg.pose.position.y = paths_[current_path].points[current_point].position[1];
+            goal_msg.pose.position.z = paths_[current_path].points[current_point].position[2];
+            goal_msg.pose.orientation.x = 0.0;
+            goal_msg.pose.orientation.y = 0.0;
+            goal_msg.pose.orientation.z = 0.0;
+            goal_msg.pose.orientation.w = 1.0;
+
+            // Publish the goal
+            goal_pub_.publish(goal_msg);
+
+            // Increment the current point
+            current_point++;
         }
 
-        // Check if the current point is valid
-        if (current_point >= paths_[current_path].points.size())
+        if (current_path < paths_.size() && current_point >= paths_[current_path].points.size())
         {
             ROS_INFO("All points in path %d have been published.", current_path);
             current_path++;
             current_point = 0;
-            return;
         }
 
-        // Publish the current point as the goal
-        ROS_INFO("Publishing goal point %d in path %d", current_point, current_path);
-        // Publish the goal point
-        // Publish the goal point
-        geometry_msgs::PoseStamped goal_msg;
-        goal_msg.header.frame_id = frame_id_;
-        goal_msg.header.stamp = ros::Time::now();
-        goal_msg.pose.position.x = paths_[current_path].points[current_point].position[0];
-        goal_msg.pose.position.y = paths_[current_path].points[current_point].position[1];
-        goal_msg.pose.position.z = paths_[current_path].points[current_point].position[2];
-        goal_msg.pose.orientation.x = 0.0;
-        goal_msg.pose.orientation.y = 0.0;
-        goal_msg.pose.orientation.z = 0.0;
-        goal_msg.pose.orientation.w = 1.0;
-
-        // Publish the goal
-        goal_pub_.publish(goal_msg);
-
+        // Check if the current path is valid
+        if (current_path >= paths_.size())
+            ROS_INFO("All paths have been published.");
 
     }
 
@@ -205,10 +211,11 @@ public:
             temp_path.end_point.desired_velocity = 0.0;
 
             // Calculate the number of points in the path from the maximum distance in x or y
-            //
-            double delta_x = temp_path.start_point.position[0] - temp_path.end_point.position[0];
-            double delta_y = temp_path.start_point.position[1] - temp_path.end_point.position[1];
+            // gets the absolute value of the difference between the start and end points
+            double delta_x = abs(temp_path.end_point.position[0] - temp_path.start_point.position[0]);
+            double delta_y = abs(temp_path.end_point.position[1] - temp_path.start_point.position[1]);
 
+            // The number of points in the path is the maximum distance divided by the resolution
             temp_path.num_points = std::max({delta_x, delta_y}) / path_resolution_;
 
             // Calculate the increments in x and y based on the number of points
@@ -219,8 +226,10 @@ public:
             for (int j = 0; j < temp_path.num_points; j++)
             {
                 path_point temp_point;
-                temp_point.position[0] = temp_path.start_point.position[0] + j*x_increments;    // X
-                temp_point.position[1] = temp_path.start_point.position[1] + j*y_increments;    // Y
+                // x(t) = (1-t)*P + t*Q ; P and Q are the points and t = [0,1]
+                double t = (double) j / (double) temp_path.num_points;
+                temp_point.position[0] = (1 - t) * temp_path.start_point.position[0] + (t) * temp_path.end_point.position[0];    // X
+                temp_point.position[1] = (1 - t) * temp_path.start_point.position[1] + (t) * temp_path.end_point.position[1];    // Y
                 temp_point.position[2] = temp_path.start_point.position[2];                     // Z
                 temp_point.desired_velocity = desired_velocity_;                                // Velocity
 
@@ -233,6 +242,16 @@ public:
         }
     }
 
+
+    ~PathPlanner()
+    {
+        std::cout << "\n\n\nShutting down the Path Planner Node...\n\n\n" << std::endl;
+
+        // shutdown the nodehandlers
+        nh_.shutdown();
+        priv_nh_.shutdown();
+    }
+
 private:
     ros::NodeHandle nh_;
     ros::NodeHandle priv_nh_;
@@ -240,7 +259,7 @@ private:
     ros::Timer publisher_timer_;
 
     // Messages
-    ros::geometry_msgs::PoseStamped goal_msg_;
+    geometry_msgs::PoseStamped goal_msg_;
 
     // Publishers
     ros::Publisher goal_pub_;
@@ -250,11 +269,15 @@ private:
     int num_points_;
     std::vector<std::vector<double>> points_;
 
-    double desired_velocity_ = 1.0;
-    double path_resolution_ = 0.001 /* metros */;
+    double desired_velocity_;
+    double path_resolution_ = 0.001 /* meters */;
     double time_to_reach_goal_;
 
-    double frequency_to_publish_goal_ = 1.0; // Hz
+    double frequency_to_publish_goal_; // Hz
+
+    std::string goal_topic_name_;
+
+
 
 
     // Path type will determine how the goal points will be generated
@@ -277,7 +300,7 @@ private:
     // The Path is a vector of path points
     typedef struct path
     {
-        int num_points;
+        unsigned int num_points;
         path_point start_point;
         path_point end_point;
         std::vector<path_point> points;

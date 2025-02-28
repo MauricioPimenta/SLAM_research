@@ -1,0 +1,26 @@
+<?xml version="1.0"?>
+<launch>
+
+    <arg name="robot" default="" />
+    <arg name="goal_topic" default="$(arg robot)/goal" />
+
+    <!-- Path Configurations -->
+    <arg name="path_resolution" default="" />  <!-- Resolution of the path -->
+    <arg name="desired_vel" default="0.5" />        <!-- Desired velocity of the robot on each point -->
+
+    <!-- Publishing Rate -->
+    <arg name="pub_frequency" default="60" />
+
+    <arg name="path_file" default="$(find diff_control)/config/paths/path_positions.yaml" />
+
+    <!-- Start the path planner node -->
+    <node pkg="diff_control" type="my_path_planner_node" name="path_planner" output="screen">
+        <rosparam command="load" file="$(arg path_file)"/>
+
+        <param name="goal_topic_name" value="$(arg goal_topic)" />
+        <param name="path_resolution" value="$(arg path_resolution)" />
+        <param name="desired_vel" value="$(arg desired_vel)" />
+        <param name="pub_frequency" value="$(arg pub_frequency)" />
+    </node>
+
+</launch>

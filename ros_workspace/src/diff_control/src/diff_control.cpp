@@ -14,11 +14,12 @@
 #include <csignal>  // to catch the SIGINT signal - ctrl+c
 
 #include "diff_controller.h"
+#include "path_planner.h"
 
 bool signal_SIGINT = false;
 
 /*
- * Function to Handle the use of Ctrl+c to terminate the program 
+ * Function to Handle the use of Ctrl+c to terminate the program
  */
 void signalHandler(int signum){
         std::cout << "\n\n\nSignal " << signum << " received. Shutting down the Differential Controller Node...\n" << std::endl;
@@ -33,7 +34,9 @@ int main(int argc, char * argv[])
 
     // Initialize the ROS node without the ctrl+c handler so we can use our own
     ros::init(argc, argv, "diff_control", ros::init_options::NoSigintHandler);
-    diff_controller controller = diff_controller();
+    DiffController controller = DiffController();
+
+    PathPlanner path_planner_generator = PathPlanner();
 
     while (ros::ok())
     {
@@ -44,6 +47,7 @@ int main(int argc, char * argv[])
         {
             std::cout << "Deleting the controller object..." << std::endl;
             delete &controller;
+            delete &path_planner_generator;
             ros::shutdown();
             break;
         }

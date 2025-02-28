@@ -51,7 +51,7 @@
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h> // to convert between tf2 and geometry_msgs
 
 
-class diff_controller
+class DiffController
 {
     /*
      * Private Atributes and Properties
@@ -129,7 +129,7 @@ private:
     std::vector<geometry_msgs::Twist> slam_cmd_vel_list_;
 
     std::vector<geometry_msgs::Twist> cmd_vel_list_;
-    std::vector<geometry_msgs::Pose> goal_list_;
+    std::vector<geometry_msgs::PoseStamped> goal_list_;
 
     std::vector<turtlesim::Pose> turtle_pose_list_;
 
@@ -150,7 +150,7 @@ public:
      */
 
     // Constructor
-    diff_controller() : nh_(""), priv_nh_("~")
+    DiffController() : nh_(""), priv_nh_("~")
     {
         // Get the Parameters from the launch file and set default values
         priv_nh_.param<std::string>("vrpn_topic", vrpn_topic_, "vrpn_client_node/L1/pose");
@@ -174,18 +174,18 @@ public:
          * Subscribers
          */
         // subscribe to the vrpn twist topic
-        vrpn_sub_ = nh_.subscribe(vrpn_topic_, 1, &diff_controller::vrpnCallback, this);
+        vrpn_sub_ = nh_.subscribe(vrpn_topic_, 1, &DiffController::vrpnCallback, this);
         // subscribe to the pose topic from the slam_toolbox
-        pose_sub_ = nh_.subscribe(pose_topic_, 1, &diff_controller::slam_poseCallback, this);
+        pose_sub_ = nh_.subscribe(pose_topic_, 1, &DiffController::slam_poseCallback, this);
         // subscribe to the goal topic
-        goal_sub_ = nh_.subscribe(goal_topic_, 1, &diff_controller::goalCallback, this);
+        goal_sub_ = nh_.subscribe(goal_topic_, 1, &DiffController::goalCallback, this);
 
-        gazebo_sub_ = nh_.subscribe(gazebo_topic_, 1, &diff_controller::gazeboCallback, this);
+        gazebo_sub_ = nh_.subscribe(gazebo_topic_, 1, &DiffController::gazeboCallback, this);
 
         if (use_turtle_sim_)
         {
             // create subscriber to turtlesim pose topic
-            turtle_sub_ = nh_.subscribe(turtle_topic_, 1, &diff_controller::turtleCallback, this);
+            turtle_sub_ = nh_.subscribe(turtle_topic_, 1, &DiffController::turtleCallback, this);
         }
 
         /*
@@ -198,9 +198,9 @@ public:
         // Start the timer that call the control loop
         // the callback in this timer should publish the control signal (cmd_vel) for vrpn and slam_toolbox
         ros::WallDuration control_interval = ros::WallDuration(1.0 / control_frequency_);
-        vrpn_control_loop_timer_ = nh_.createSteadyTimer(ros::WallDuration(control_interval), &diff_controller::vrpn_controlLoop, this);
-        slam_control_loop_timer_ = nh_.createSteadyTimer(ros::WallDuration(control_interval), &diff_controller::slam_controlLoop, this);
-        control_loop_timer_ = nh_.createSteadyTimer(ros::WallDuration(control_interval), &diff_controller::publishControlSignals, this);
+        vrpn_control_loop_timer_ = nh_.createSteadyTimer(ros::WallDuration(control_interval), &DiffController::vrpn_controlLoop, this);
+        slam_control_loop_timer_ = nh_.createSteadyTimer(ros::WallDuration(control_interval), &DiffController::slam_controlLoop, this);
+        control_loop_timer_ = nh_.createSteadyTimer(ros::WallDuration(control_interval), &DiffController::publishControlSignals, this);
     }
 
 
@@ -232,7 +232,7 @@ public:
         }
 
         // calculate the velocity commands
-        this->calculateControlSignals(limo_gazebo_pose_, goal_.value(), &cmd_vel_);
+        this->calculateControlSignals(limo_gazebo_pose_, goal_.value().pose, &cmd_vel_);
 
         ROS_INFO("\n\n****** Gazebo Control Signals: ******\n");
         ROS_INFO("Linear Velocity: %.4f\n", cmd_vel_.linear.x);
@@ -300,7 +300,7 @@ public:
         }
 
         // calculate the velocity commands
-        this->calculateControlSignals(vrpn_twist_.pose, goal_.value(), &vrpn_cmd_vel_);
+        this->calculateControlSignals(vrpn_twist_.pose, goal_.value().pose, &vrpn_cmd_vel_);
 
         ROS_INFO("\n\n****** VRPN Control Signals: ******\n");
         ROS_INFO("Linear Velocity: %.4f\n", vrpn_cmd_vel_.linear.x);
@@ -344,7 +344,7 @@ public:
             return;
         }
         // calculate the velocity commands
-        this->calculateControlSignals(slam_pose_.pose.pose, goal_.value(), &slam_cmd_vel_);
+        this->calculateControlSignals(slam_pose_.pose.pose, goal_.value().pose, &slam_cmd_vel_);
 
         ROS_INFO("\n\n====== SLAM_TOOLBOX Control Signals: ======\n");
         ROS_INFO("Linear Velocity: %.4f\n", slam_cmd_vel_.linear.x);
@@ -386,7 +386,7 @@ public:
      * @param cmd_vel geometry_msgs::Twist::Ptr - cmd_vel message to save the control signals
      * @return void
      *---------------------------------------------**/
-    void calculateControlSignals(geometry_msgs::Pose last_position, geometry_msgs::PoseStamped desired_position, geometry_msgs::Twist *cmd_vel)
+    void calculateControlSignals(geometry_msgs::Pose last_position, geometry_msgs::Pose desired_position, geometry_msgs::Twist *cmd_vel)
     {
 
         // Convert the orientation from quaternion to Euler angles using tf2
@@ -438,14 +438,14 @@ public:
         ROS_WARN("x_d: %.4f, y_d: %.4f, theta_d: %.4f\n", x_d, y_d, theta_d);
         ROS_WARN("x_error: %.4f, y_error: %.4f\n", x_error, y_error);
 
-        // Se a posicao desejada for alcancada
-        if (abs(x_error) < 0.1 && abs(y_error) < 0.1)
-        {
-            // zera os comandos de velocidade
-            cmd_vel->linear.x = 0.0;
-            cmd_vel->angular.z = 0.0;
-            return;
-        }
+        // // Se a posicao desejada for alcancada
+        // if (abs(x_error) < 0.1 && abs(y_error) < 0.1)
+        // {
+        //     // zera os comandos de velocidade
+        //     cmd_vel->linear.x = 0.0;
+        //     cmd_vel->angular.z = 0.0;
+        //     return;
+        // }
 
         // Velocidades desejadas - should be zero for positioning
         double Vxd = 0;
@@ -453,7 +453,7 @@ public:
 
         // Velocidades máximas
         double vmax = 1;
-        double wmax = 1;
+        double wmax = 2;
 
         // Calculo dos sinais de controle - velocidade linear e angular no eixo do robo
         double u = cos(theta) * (Vxd + this->Kx_*x_error) + sin(theta) *(Vyd + this->Ky_*y_error);
@@ -513,7 +513,7 @@ public:
     }
 
     // Destructor
-    ~diff_controller()
+    ~DiffController()
     {
         std::cout << "\n\n\nShutting down the Differential Controller Node...\n\n\n" << std::endl;
 
@@ -576,8 +576,8 @@ public:
         for (int i = 0; i < goal_list_.size(); i++)
         {
             file << "Message " << i << ": \n";
-            file << "Position: (" << goal_list_[i].position.x << ", " << goal_list_[i].position.y << ", " << goal_list_[i].position.z << ")\n";
-            file << "Orientation: (" << goal_list_[i].orientation.x << ", " << goal_list_[i].orientation.y << ", " << goal_list_[i].orientation.z << ", " << goal_list_[i].orientation.w << ")\n";
+            file << "Position: (" << goal_list_[i].pose.position.x << ", " << goal_list_[i].pose.position.y << ", " << goal_list_[i].pose.position.z << ")\n";
+            file << "Orientation: (" << goal_list_[i].pose.orientation.x << ", " << goal_list_[i].pose.orientation.y << ", " << goal_list_[i].pose.orientation.z << ", " << goal_list_[i].pose.orientation.w << ")\n";
         }
 
         file << "\n\n===============================================\n\n";
