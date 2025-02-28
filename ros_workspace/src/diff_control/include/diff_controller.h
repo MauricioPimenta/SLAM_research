@@ -473,7 +473,7 @@ public:
 
         // Velocidades máximas
         double vmax = max_linear_velocity_;
-        double wmax = max_angular_velocity;
+        double wmax = max_angular_velocity_;
 
         // Calculo dos sinais de controle - velocidade linear e angular no eixo do robo
         double u = cos(theta) * (Vxd + this->Kx_*x_error) + sin(theta) *(Vyd + this->Ky_*y_error);
