@@ -48,6 +48,80 @@
 
 class PathPlanner
 {
+
+    private:
+    ros::NodeHandle nh_;
+    ros::NodeHandle priv_nh_;
+
+    ros::Timer publisher_timer_;
+
+    // Messages
+    geometry_msgs::PoseStamped goal_msg_;
+
+    // Publishers
+    ros::Publisher goal_pub_;
+
+    /*
+     * Parameters
+     */
+
+    // Map Parameters
+    std::string name_;       // Name of the path
+    std::string path_type_; // Type of the path
+    std::string frame_id_ {"world_frame"};  // Frame ID to publish the goal points
+    int num_points_;        // Number of points in the path
+    std::vector<geometry_msgs::Point> points_;
+
+    double desired_velocity_;
+    double path_resolution_ = 0.001 /* meters */;
+    double time_to_reach_goal_;
+
+    double frequency_to_publish_goal_; // Hz
+
+    std::string goal_topic_name_;
+
+
+    // Lemniscata Parameters
+    double R_;
+    double w_;
+    double time_of_experiment_;
+
+
+    // Path type will determine how the goal points will be generated
+    enum path_type
+    {
+        LINEAR,     // Linear paths - straight lines - x(t) = (1-t)*P + t*Q ; P and Q are the points
+        BEZIER,     // Bezier paths - x(t) = (1-t)^3*P + 3(1-t)^2*t*Q + 3(1-t)*t^2*R + t^3*S ; P, Q, R and S are the points
+        CUBIC,      // Cubic paths - x(t) = (1-t)^3*P + 3(1-t)^2*t*Q + 3(1-t)*t^2*R + t^3*S ; P, Q, R and S are the points
+        QUINTIC,     // Quintic paths - x(t) = a0 + a1*t + a2*t^2 + a3*t^3 + a4*t^4 + a5*t^5 ; a0, a1, a2, a3, a4 and a5 are the coefficients
+        CIRCULAR,
+        SPIRAL,
+        LEMNISCATA
+    };
+
+    // This struct define the points in the path.
+    // Each point has a position and a desired velocity tangent to the trajectory
+    typedef struct path_point
+    {
+        geometry_msgs::Pose pose;   // position of the point
+        double desired_velocity;        // desired velocity tangent to the trajectory
+    } path_point;
+
+    // The Path is a vector of path points
+    typedef struct path
+    {
+        unsigned int num_points;
+        path_point start_point;
+        path_point end_point;
+        std::vector<path_point> points;
+        enum path_type path_type;
+    }Path;
+
+    Path path_;
+    std::vector<Path> paths_;
+    int number_of_paths_;
+
+
 public:
     PathPlanner() : nh_(""), priv_nh_("~")
     {
@@ -408,78 +482,6 @@ public:
 
         std::cout << "Done!." << std::endl;
     }
-
-private:
-    ros::NodeHandle nh_;
-    ros::NodeHandle priv_nh_;
-
-    ros::Timer publisher_timer_;
-
-    // Messages
-    geometry_msgs::PoseStamped goal_msg_;
-
-    // Publishers
-    ros::Publisher goal_pub_;
-
-    /*
-     * Parameters
-     */
-
-    // Map Parameters
-    std::string name_;       // Name of the path
-    std::string path_type_; // Type of the path
-    std::string frame_id_ {"world_frame"};  // Frame ID to publish the goal points
-    int num_points_;        // Number of points in the path
-    std::vector<geometry_msgs::Point> points_;
-
-    double desired_velocity_;
-    double path_resolution_ = 0.001 /* meters */;
-    double time_to_reach_goal_;
-
-    double frequency_to_publish_goal_; // Hz
-
-    std::string goal_topic_name_;
-
-
-    // Lemniscata Parameters
-    double R_;
-    double w_;
-    double time_of_experiment_;
-
-
-    // Path type will determine how the goal points will be generated
-    enum path_type
-    {
-        LINEAR,     // Linear paths - straight lines - x(t) = (1-t)*P + t*Q ; P and Q are the points
-        BEZIER,     // Bezier paths - x(t) = (1-t)^3*P + 3(1-t)^2*t*Q + 3(1-t)*t^2*R + t^3*S ; P, Q, R and S are the points
-        CUBIC,      // Cubic paths - x(t) = (1-t)^3*P + 3(1-t)^2*t*Q + 3(1-t)*t^2*R + t^3*S ; P, Q, R and S are the points
-        QUINTIC,     // Quintic paths - x(t) = a0 + a1*t + a2*t^2 + a3*t^3 + a4*t^4 + a5*t^5 ; a0, a1, a2, a3, a4 and a5 are the coefficients
-        CIRCULAR,
-        SPIRAL,
-        LEMNISCATA
-    };
-
-    // This struct define the points in the path.
-    // Each point has a position and a desired velocity tangent to the trajectory
-    typedef struct path_point
-    {
-        geometry_msgs::Pose pose;   // position of the point
-        double desired_velocity;        // desired velocity tangent to the trajectory
-    } path_point;
-
-    // The Path is a vector of path points
-    typedef struct path
-    {
-        unsigned int num_points;
-        path_point start_point;
-        path_point end_point;
-        std::vector<path_point> points;
-        enum path_type path_type;
-    }Path;
-
-    Path path_;
-    std::vector<Path> paths_;
-    int number_of_paths_;
 
 
 
