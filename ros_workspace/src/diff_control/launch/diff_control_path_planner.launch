@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <launch>
 
-    <arg name="robot" default="" />
+    <arg name="robot" default="L1" />
     <arg name="goal_topic" default="$(arg robot)/goal" />
 
     <!-- Path Configurations -->

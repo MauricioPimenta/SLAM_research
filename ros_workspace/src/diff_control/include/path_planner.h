@@ -33,13 +33,16 @@
 
 /* ROS */
 #include <ros/ros.h>
+#include <tf2/LinearMath/Quaternion.h>  // tf2 library for Quaternions
+#include <tf2_geometry_msgs/tf2_geometry_msgs.h>
 
 // C++ Libraries for handling .yaml files
 #include <yaml-cpp/yaml.h>
 #include <xmlrpcpp/XmlRpcValue.h>   // to deal with nested parameters inside the .yaml file
 
-#include <ros/ros.h>
-
+// ROS Messages
+#include <geometry_msgs/Point.h>
+#include <geometry_msgs/Pose.h>
 #include <geometry_msgs/PoseStamped.h>
 
 
@@ -52,10 +55,10 @@ public:
          * get the parameters from the parameter server
         */
         loadCommonParameters();
-        
+
         // Load the parameters from the .yaml file
         loadPathFromYaml();
-        
+
         // generate trajectory from loaded points
         if (path_type_ == "LINEAR")
         {
@@ -71,22 +74,8 @@ public:
             ROS_ERROR("Invalid path type: %s", path_type_.c_str());
         }
 
-        // Display the generated paths
-        ROS_INFO("Generated %ld paths:", paths_.size());
-        for (const auto& path : paths_)
-        {
-            ROS_INFO("Path from [%.2f, %.2f, %.2f] to [%.2f, %.2f, %.2f] with %d points",
-                     path.start_point.position[0], path.start_point.position[1], path.start_point.position[2],
-                     path.end_point.position[0], path.end_point.position[1], path.end_point.position[2],
-                     path.num_points);
-        }
-
-        // Create a publisher to publish the goal points
-        goal_pub_ = nh_.advertise<geometry_msgs::PoseStamped>(goal_topic_name_, 1);
-        // Create a timer to publish the one point of the path as the goal each time it is called
-        ros::Duration time_to_publish_goal = ros::Duration(1.0 / frequency_to_publish_goal_);
-        publisher_timer_ = nh_.createTimer(time_to_publish_goal, &PathPlanner::publishGoal, this);
-
+        printGeneratedPaths();
+        createPublishers();
     }
 
     PathPlanner(std::string path_type) : nh_(""), priv_nh_("~")
@@ -100,12 +89,39 @@ public:
         }
         else if (path_type == "LEMNISCATA")
         {
+            loadLemniscataParameters();
             createLemniscataPath(R_, w_);
         }
         else
         {
             ROS_ERROR("Invalid path type: %s", path_type.c_str());
         }
+
+        printGeneratedPaths();
+        createPublishers();
+    }
+
+    void printGeneratedPaths()
+    {
+        // Display the generated paths
+        ROS_INFO("Generated %ld paths:", paths_.size());
+        for (const auto& path : paths_)
+        {
+            ROS_INFO("Path from [%.2f, %.2f, %.2f] to [%.2f, %.2f, %.2f] with %d points",
+                     path.start_point.pose.position.x, path.start_point.pose.position.y, path.start_point.pose.position.z,
+                     path.end_point.pose.position.x, path.end_point.pose.position.y, path.end_point.pose.position.z,
+                     path.num_points);
+        }
+    }
+
+    void createPublishers()
+    {
+        // Create a publisher to publish the goal points
+        goal_pub_ = nh_.advertise<geometry_msgs::PoseStamped>(goal_topic_name_, 1);
+        // Create a timer to publish the one point of the path as the goal each time it is called
+        ros::Duration time_to_publish_goal = ros::Duration(1.0 / frequency_to_publish_goal_);
+        publisher_timer_ = nh_.createTimer(time_to_publish_goal, &PathPlanner::publishGoal, this);
+
     }
 
     void loadCommonParameters()
@@ -123,20 +139,39 @@ public:
 
     void loadPathFromYaml()
     {
-        // Retrieve simple parameters
-        std::string name;
-        std::string frame_id;
-        int num_points;
-        std::string path_type_;
-
-        priv_nh_.getParam("name", name);
-        priv_nh_.getParam("frame_id", frame_id);
-        priv_nh_.getParam("num_points", num_points);
-        priv_nh_.getParam("path_type", path_type_);
-
-        ROS_INFO("Path Name: %s", name.c_str());
-        ROS_INFO("Frame ID: %s", frame_id.c_str());
-        ROS_INFO("Number of Points: %d", num_points);
+        // Retrieve parameters from the parameter server defined in the .yaml file
+        if (priv_nh_.getParam("name", name_))
+        {
+            ROS_INFO("Path Name: %s", name_.c_str());
+        }
+        else
+        {
+            ROS_ERROR("Failed to get 'name' parameter.");
+        }
+        if (priv_nh_.getParam("frame_id", frame_id_))
+        {
+            ROS_INFO("Frame ID: %s", frame_id_.c_str());
+        }
+        else
+        {
+            ROS_ERROR("Failed to get 'frame_id' parameter.");
+        }
+        if (priv_nh_.getParam("num_points", num_points_))
+        {
+            ROS_INFO("Number of Points: %d", num_points_);
+        }
+        else
+        {
+            ROS_ERROR("Failed to get 'num_points' parameter.");
+        }
+        if (priv_nh_.getParam("path_type", path_type_))
+        {
+            ROS_INFO("Path Type: %s", path_type_.c_str());
+        }
+        else
+        {
+            ROS_ERROR("Failed to get 'path_type' parameter.");
+        }
 
         // Load points using XmlRpcValue
         XmlRpc::XmlRpcValue points_param;
@@ -149,11 +184,11 @@ public:
                 {
                     if (points_param[i].getType() == XmlRpc::XmlRpcValue::TypeArray && points_param[i].size() == 3)
                     {
-                        std::vector<double> point = {
-                            static_cast<double>(points_param[i][0]),
-                            static_cast<double>(points_param[i][1]),
-                            static_cast<double>(points_param[i][2])
-                        };
+                        geometry_msgs::Point point;
+                        point.x = static_cast<double>(points_param[i][0]);
+                        point.y = static_cast<double>(points_param[i][1]);
+                        point.z = static_cast<double>(points_param[i][2]);
+
                         points_.push_back(point);
                     }
                     else
@@ -164,9 +199,7 @@ public:
                 // Display loaded points
                 ROS_INFO("Loaded %ld points:", points_.size());
                 for (const auto& point : points_)
-                {
-                    ROS_INFO("[%.2f, %.2f, %.2f]", point[0], point[1], point[2]);
-                }
+                    ROS_INFO("[%.2f, %.2f, %.2f]", point.x, point.y, point.z);
             }
             else
             {
@@ -189,7 +222,7 @@ public:
     void loadLemniscataParameters()
     {
         // Retrieve simple parameters
-        priv_nh_.param<double>("R", R_, 1.0);
+        priv_nh_.param<double>("R", R_, 2.0);
         priv_nh_.param<double>("w", w_, 2*M_PI/40);
         priv_nh_.param<double>("tempo_experimento", time_of_experiment_, 60.0 /* seconds */);
 
@@ -213,13 +246,8 @@ public:
             geometry_msgs::PoseStamped goal_msg;
             goal_msg.header.frame_id = frame_id_;
             goal_msg.header.stamp = ros::Time::now();
-            goal_msg.pose.position.x = paths_[current_path].points[current_point].position[0];
-            goal_msg.pose.position.y = paths_[current_path].points[current_point].position[1];
-            goal_msg.pose.position.z = paths_[current_path].points[current_point].position[2];
-            goal_msg.pose.orientation.x = 0.0;
-            goal_msg.pose.orientation.y = 0.0;
-            goal_msg.pose.orientation.z = 0.0;
-            goal_msg.pose.orientation.w = 1.0;
+
+            goal_msg.pose = paths_[current_path].points[current_point].pose;
 
             // Publish the goal
             goal_pub_.publish(goal_msg);
@@ -259,15 +287,20 @@ public:
             Path temp_path;
             temp_path.path_type = LINEAR;
             // Saves the first and last points of the path
-            temp_path.start_point.position = points_[i];
-            temp_path.end_point.position = points_[i + 1];
+            temp_path.start_point.pose.position.x = points_[i].x;
+            temp_path.start_point.pose.position.y = points_[i].y;
+            temp_path.start_point.pose.position.z = points_[i].z;
             temp_path.start_point.desired_velocity = desired_velocity_;
+
+            temp_path.end_point.pose.position.x = points_[i + 1].x;
+            temp_path.end_point.pose.position.y = points_[i + 1].y;
+            temp_path.end_point.pose.position.z = points_[i + 1].z;
             temp_path.end_point.desired_velocity = 0.0;
 
             // Calculate the number of points in the path from the maximum distance in x or y
             // gets the absolute value of the difference between the start and end points
-            double delta_x = abs(temp_path.end_point.position[0] - temp_path.start_point.position[0]);
-            double delta_y = abs(temp_path.end_point.position[1] - temp_path.start_point.position[1]);
+            double delta_x = abs(temp_path.end_point.pose.position.x - temp_path.start_point.pose.position.x);
+            double delta_y = abs(temp_path.end_point.pose.position.y - temp_path.start_point.pose.position.y);
 
             // The number of points in the path is the maximum distance divided by the resolution
             temp_path.num_points = std::max({delta_x, delta_y}) / path_resolution_;
@@ -276,15 +309,27 @@ public:
             double x_increments = delta_x / temp_path.num_points;
             double y_increments = delta_y / temp_path.num_points;
 
+            // Orientation of the point is the tangent of the path or trajectory
+            // For linear paths, the orientation is the angle of the straight line between the start and end points
+            double theta = atan2(temp_path.end_point.pose.position.y - temp_path.start_point.pose.position.y,
+                                 temp_path.end_point.pose.position.x - temp_path.start_point.pose.position.x);
+            // convert theta to quaternion
+            tf2::Quaternion q;
+            q.setRPY(0, 0, theta);
+
             // populate the list of points in the path
             for (int j = 0; j < temp_path.num_points; j++)
             {
                 path_point temp_point;
                 // x(t) = (1-t)*P + t*Q ; P and Q are the points and t = [0,1]
                 double t = (double) j / (double) temp_path.num_points;
-                temp_point.position[0] = (1 - t) * temp_path.start_point.position[0] + (t) * temp_path.end_point.position[0];    // X
-                temp_point.position[1] = (1 - t) * temp_path.start_point.position[1] + (t) * temp_path.end_point.position[1];    // Y
-                temp_point.position[2] = temp_path.start_point.position[2];                     // Z
+                temp_point.pose.position.x = (1 - t) * temp_path.start_point.pose.position.x + (t) * temp_path.end_point.pose.position.x;    // X
+                temp_point.pose.position.y = (1 - t) * temp_path.start_point.pose.position.y + (t) * temp_path.end_point.pose.position.y;    // Y
+                temp_point.pose.position.z = temp_path.start_point.pose.position.z;                     // Z
+
+                // Saves the orientation of the point as the orientation of the line between the start and end points
+                temp_point.pose.orientation = tf2::toMsg(q);
+
                 temp_point.desired_velocity = desired_velocity_;                                // Velocity
 
                 // Add the point to the path
@@ -320,15 +365,36 @@ public:
         // Create all the points in the lemniscata path and add them to the list of paths
         Path temp_path;
         temp_path.path_type = LEMNISCATA;
-        temp_path.start_point.position = {R*cos(0), R*sin(0), 0.0};
-        temp_path.start_point.desired_velocity = desired_velocity_;
 
-        temp_path.end_point.position = {R*cos(time_of_experiment_*w), R*sin(2*time_of_experiment_*w), 0.0};
-        temp_path.end_point.desired_velocity = 0.0;
+        // vel*t_exp = total_dist -> total_dist/resolution = num_points
+        // n = vel*t_exp/(vel/freq)
+        temp_path.num_points = frequency_to_publish_goal_*time_of_experiment_;
 
         // Populate the points in the path using the resolution and the time of the experiment
+        for (double t = 0; t < time_of_experiment_; t += time_of_experiment_/temp_path.num_points)
+        {
+            path_point temp_point;
 
+            temp_point.pose.position.x = R*cos(w*t);
+            temp_point.pose.position.y = R*sin(2*w*t);
+            temp_point.pose.position.z = 0.0;
 
+            // Orientation of the point is the tangent of the path or trajectory
+            // For lemniscata paths, the orientation is the angle of the tangent to the curve
+            double theta = atan2(2*R*w*cos(2*w*t), -R*w*sin(w*t));
+            // convert theta to quaternion
+            tf2::Quaternion q;
+            q.setRPY(0, 0, theta);
+            temp_point.pose.orientation = tf2::toMsg(q);
+
+            temp_point.desired_velocity = desired_velocity_;
+
+            // Add the point to the path
+            temp_path.points.push_back(temp_point);
+        }
+
+        // Insert the path in the list of paths
+        paths_.push_back(temp_path);
 
     }
 
@@ -339,6 +405,8 @@ public:
         // shutdown the nodehandlers
         nh_.shutdown();
         priv_nh_.shutdown();
+
+        std::cout << "Done!." << std::endl;
     }
 
 private:
@@ -356,10 +424,13 @@ private:
     /*
      * Parameters
      */
-    std::string path_type_;
-    std::string frame_id_;
-    int num_points_;
-    std::vector<std::vector<double>> points_;
+
+    // Map Parameters
+    std::string name_;       // Name of the path
+    std::string path_type_; // Type of the path
+    std::string frame_id_ {"world_frame"};  // Frame ID to publish the goal points
+    int num_points_;        // Number of points in the path
+    std::vector<geometry_msgs::Point> points_;
 
     double desired_velocity_;
     double path_resolution_ = 0.001 /* meters */;
@@ -392,7 +463,7 @@ private:
     // Each point has a position and a desired velocity tangent to the trajectory
     typedef struct path_point
     {
-        std::vector<double> position = {0.0, 0.0, 0.0};   // position of the point
+        geometry_msgs::Pose pose;   // position of the point
         double desired_velocity;        // desired velocity tangent to the trajectory
     } path_point;
 
@@ -409,7 +480,7 @@ private:
     Path path_;
     std::vector<Path> paths_;
     int number_of_paths_;
-    
+
 
 
 };

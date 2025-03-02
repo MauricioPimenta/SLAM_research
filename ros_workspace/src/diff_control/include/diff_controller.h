@@ -41,9 +41,7 @@
 
 /* tf is needed to convert quaternions to Euler and vice versa */
 #include <tf2_ros/buffer.h>
-
 #include <tf2/utils.h>
-
 #include <tf2/LinearMath/Matrix3x3.h>   // tf2 library for Matrix3x3
 #include <tf2/LinearMath/Quaternion.h>  // tf2 library for Quaternions
 #include <tf2/LinearMath/Transform.h>   // tf2 library for Transforms
