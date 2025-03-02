@@ -7,6 +7,7 @@
     <!-- Path Configurations -->
     <arg name="path_resolution" default="" />  <!-- Resolution of the path -->
     <arg name="desired_vel" default="0.5" />        <!-- Desired velocity of the robot on each point -->
+    <arg name="path_type" default="LEMNISCATA"/>
 
     <!-- Publishing Rate -->
     <arg name="pub_frequency" default="60" />

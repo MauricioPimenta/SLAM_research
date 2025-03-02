@@ -36,7 +36,7 @@ int main(int argc, char * argv[])
     ros::init(argc, argv, "diff_control", ros::init_options::NoSigintHandler);
     DiffController controller = DiffController();
 
-    PathPlanner path_planner_generator = PathPlanner();
+    // PathPlanner path_planner_generator = PathPlanner();
 
     while (ros::ok())
     {
@@ -47,7 +47,7 @@ int main(int argc, char * argv[])
         {
             std::cout << "Deleting the controller object..." << std::endl;
             delete &controller;
-            delete &path_planner_generator;
+            // delete &path_planner_generator;
             ros::shutdown();
             break;
         }

@@ -33,6 +33,7 @@
     <include file="$(find diff_control)/launch/diff_control_path_planner.launch">
         <arg name="robot" default="$(arg robot)" />
         <arg name="goal_topic" default="$(arg goal_topic)" />
+        <arg name="path_type" default="LEMNISCATA" />
 
         <!-- Path Configurations -->
         <arg name="pub_frequency" default="60" />
