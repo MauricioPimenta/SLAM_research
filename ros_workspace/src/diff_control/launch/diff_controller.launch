@@ -8,7 +8,7 @@
     <arg name="slam_cmd_vel_topic" default="$(arg robot)/slam_cmd_vel" />
 
     <!-- Run diff_control Node with gdb -->
-    
+
     <node pkg="diff_control" type="diff_control_node" name="diff_controller" output="screen">
         <param name="vrpn_topic" value="vrpn_client_node/$(arg robot)/pose" />
         <param name="pose_topic" value="slam_toolbox/pose" />
@@ -17,11 +17,11 @@
         <param name="cmd_vel_topic" value="$(arg cmd_vel_topic)" />
         <param name="vrpn_cmd_vel_topic" value="$(arg vrpn_cmd_vel_topic)" />
         <param name="slam_cmd_vel_topic" value="$(arg slam_cmd_vel_topic)" />
-        
+
         <!-- TurtleSim Parameters -->
         <param name="use_turtle_sim" value="false" />
         <param name="turtle_topic" value="turtle1/pose" />
-        
+
         <!-- Controller Parameters -->
         <param name="a" value="0.5" />
         <param name="Kx" value="1.0" />
