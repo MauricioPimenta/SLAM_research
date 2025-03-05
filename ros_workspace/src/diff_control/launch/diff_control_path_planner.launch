@@ -8,6 +8,9 @@
     <arg name="path_resolution" default="" />  <!-- Resolution of the path -->
     <arg name="desired_vel" default="0.5" />        <!-- Desired velocity of the robot on each point -->
     <arg name="path_type" default="LEMNISCATA"/>
+    <arg name="R" default="1.0" />
+    <arg name="W" default="0.20" />
+    <arg name="tempo_experimento" default="120.0" />
 
     <!-- Publishing Rate -->
     <arg name="pub_frequency" default="60" />
@@ -22,6 +25,10 @@
         <param name="path_resolution" value="$(arg path_resolution)" />
         <param name="desired_vel" value="$(arg desired_vel)" />
         <param name="pub_frequency" value="$(arg pub_frequency)" />
+
+        <param name="R" value="$(arg R)" />
+        <param name="W" value="$(arg W)" />
+        <param name="tempo_experimento" value="$(arg tempo_experimento)" />
     </node>
 
 </launch>

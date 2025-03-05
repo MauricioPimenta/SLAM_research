@@ -184,6 +184,10 @@ public:
         priv_nh_.param<double>("Kx", Kx_, 1.0);
         priv_nh_.param<double>("Ky", Ky_, 1.0);
         priv_nh_.param<double>("control_frequency", control_frequency_, 10.0);
+        priv_nh_.param<double>("max_linear_velocity", max_linear_velocity_, 1.0);
+        priv_nh_.param<double>("max_angular_velocity", max_angular_velocity_, 1.5);
+        priv_nh_.param<double>("x_desired_velocity", x_desired_velocity_, 0.0);
+        priv_nh_.param<double>("y_desired_velocity", y_desired_velocity_, 0.0);
 
         priv_nh_.param<bool>("use_turtle_sim", use_turtle_sim_, false);
         priv_nh_.param<std::string>("turtle_topic", turtle_topic_, "turtle1/pose");
