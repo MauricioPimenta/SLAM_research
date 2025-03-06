@@ -34,7 +34,7 @@ int main(int argc, char * argv[])
         if (g_signal_SIGINT)
         {
             std::cout << "Deleting the PathPlanner object..." << std::endl;
-            delete &path_planner_generator;
+            delete path_planner_generator;
             std::cout << "bye bye" << std::endl;
             break;
         }
