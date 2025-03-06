@@ -24,7 +24,7 @@ int main(int argc, char * argv[])
     // Initialize the ROS node without the ctrl+c handler so we can use our own
     ros::init(argc, argv, "path_planner", ros::init_options::NoSigintHandler);
 
-    PathPlanner path_planner_generator = PathPlanner("LEMNISCATA");
+    PathPlanner *path_planner_generator = new PathPlanner("LEMNISCATA");
 
     while (ros::ok())
     {
@@ -36,7 +36,7 @@ int main(int argc, char * argv[])
             std::cout << "Deleting the PathPlanner object..." << std::endl;
             delete &path_planner_generator;
             std::cout << "bye bye" << std::endl;
-            return 0;
+            break;
         }
     }
 

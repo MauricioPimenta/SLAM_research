@@ -140,7 +140,7 @@ include_directories(
 ## Declare a C++ executable
 ## With catkin_make all packages are built within a single CMake context
 ## The recommended prefix ensures that target names across packages don't collide
- add_executable(${PROJECT_NAME}_node src/diff_control.cpp)
+ add_executable(${PROJECT_NAME}_node src/diff_control_node.cpp)
 
 
 ## Rename C++ executable without prefix
@@ -161,7 +161,7 @@ target_link_libraries(${PROJECT_NAME}_node
 
 ## make another executable based on the path_planning.cpp file
 
-add_executable(my_path_planner_node src/path_planning.cpp)
+add_executable(my_path_planner_node src/path_planning_node.cpp)
 add_dependencies(my_path_planner_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 target_link_libraries(my_path_planner_node
   ${catkin_LIBRARIES}

@@ -34,7 +34,7 @@ int main(int argc, char * argv[])
 
     // Initialize the ROS node without the ctrl+c handler so we can use our own
     ros::init(argc, argv, "diff_control", ros::init_options::NoSigintHandler);
-    DiffController controller = DiffController();
+    DiffController *controller = new DiffController();
 
     // PathPlanner path_planner_generator = PathPlanner();
 
@@ -48,7 +48,7 @@ int main(int argc, char * argv[])
             std::cout << "Deleting the controller object..." << std::endl;
             delete &controller;
             // delete &path_planner_generator;
-            ros::shutdown();
+            // ros::shutdown();
             break;
         }
     }

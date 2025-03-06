@@ -477,8 +477,8 @@ public:
         std::cout << "\n\t.\n\t.\n\t.\nShutting down the Path Planner Node...\n\t.\n\t.\n\t." << std::endl;
 
         // shutdown the nodehandlers
-        nh_.shutdown();
-        priv_nh_.shutdown();
+        // nh_.shutdown();
+        // priv_nh_.shutdown();
 
         std::cout << "Done!." << std::endl;
     }

@@ -549,8 +549,8 @@ public:
         this->saveMessagesToFile();
 
         // shutdown the nodehandlers
-        nh_.shutdown();
-        priv_nh_.shutdown();
+        // nh_.shutdown();
+        // priv_nh_.shutdown();
     }
 
 
@@ -558,12 +558,26 @@ public:
 
         std::cout << "\n\n\nSaving Messages to a File...\n\n\n" << std::endl;
         // save the messages to a file
-        std::string file_name = "../Documents/SLAM_research/messages.txt";
-        std::ofstream file(file_name);
+        std::string file_path = "../Documents/SLAM_research/";
+        std::string file_date;
+        // get the current date and time
+        time_t now = time(0);
+        struct tm *localtm = localtime(&now);
+
+        file_date = std::to_string(localtm->tm_year + 1900) + "-"
+                     + std::to_string(localtm->tm_mon + 1) + "-"
+                     + std::to_string(localtm->tm_mday) + "_"
+                     + std::to_string(localtm->tm_hour) + "-"
+                     + std::to_string(localtm->tm_min) + "-"
+                     + std::to_string(localtm->tm_sec);
+
+        std::string file_name = "messages.txt";
+        std::string filename = file_path + file_date + "-" + file_name;
+        std::ofstream file(filename);
 
         if (!file.is_open())
         {
-            std::cerr << "Error opening file: " << file_name << std::endl;
+            std::cerr << "Error opening file: " << filename << std::endl;
             return;
         }
 
@@ -626,7 +640,7 @@ public:
         // close and save file
         file.close();
 
-        std::cout << "\n\n\nMessages Saved to File: " << file_name << "\n\n\n" << std::endl;
+        std::cout << "\n\n\nMessages Saved to File: " << filename << "\n\n\n" << std::endl;
 
     }
 
