@@ -8,6 +8,9 @@
 		},
 		{
 			"path": "ros_workspace/src/diff_control"
+		},
+		{
+			"path": "ros_workspace/src/limo_ros-master"
 		}
 	],
 	"settings": {
