@@ -130,13 +130,13 @@ public:
         */
         loadCommonParameters();
 
-        // Load the parameters from the .yaml file
-        loadPathFromYaml();
-
         // generate trajectory from loaded points
         if (path_type_ == "LINEAR")
         {
+            // Load the parameters from the .yaml file and create the path from the points
+            loadPathFromYaml();
             createLinearPath();
+
         }
         else if (path_type_ == "LEMNISCATA")
         {
@@ -203,6 +203,7 @@ public:
         /*
          * get the parameters from the parameter server
         */
+        priv_nh_.param<std::string>("path_type", path_type_, "LINEAR");
         priv_nh_.param<double>("desired_vel", desired_velocity_, 0.5 /* m/s */);
         priv_nh_.param<double>("pub_frequency", frequency_to_publish_goal_, 60.0 /* Hz */);
 

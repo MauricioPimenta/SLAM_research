@@ -24,7 +24,7 @@ int main(int argc, char * argv[])
     // Initialize the ROS node without the ctrl+c handler so we can use our own
     ros::init(argc, argv, "path_planner", ros::init_options::NoSigintHandler);
 
-    PathPlanner *path_planner_generator = new PathPlanner("LEMNISCATA");
+    PathPlanner *path_planner_generator = new PathPlanner();
 
     while (ros::ok())
     {

@@ -6,7 +6,7 @@ from sensor_msgs.msg import LaserScan
 class LaserScanAdjuster:
     def __init__(self):
         # Subscribe to the original LIDAR topic
-        self.scan_sub = rospy.Subscriber('/360/scan', LaserScan, self.scan_callback)
+        self.scan_sub = rospy.Subscriber('/L1/scan', LaserScan, self.scan_callback)
 
         # Publisher for the adjusted scan
         self.scan_pub = rospy.Publisher('/360/scan_fixed', LaserScan, queue_size=10)
