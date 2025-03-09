@@ -24,6 +24,9 @@
 #include <cmath>
 #include <string>
 
+#include <filesystem> // to use filesystem
+#include <ctime> // to use time
+
 #include <optional> // to use optional type
 
 /* ROS */
@@ -557,22 +560,71 @@ public:
     void saveMessagesToFile(){
 
         std::cout << "\n\n\nSaving Messages to a File...\n\n\n" << std::endl;
+
         // save the messages to a file
-        std::string file_path = "../Documents/SLAM_research/";
         std::string file_date;
         // get the current date and time
         time_t now = time(0);
         struct tm *localtm = localtime(&now);
 
-        file_date = std::to_string(localtm->tm_year + 1900) + "-"
-                     + std::to_string(localtm->tm_mon + 1) + "-"
-                     + std::to_string(localtm->tm_mday) + "_"
-                     + std::to_string(localtm->tm_hour) + "-"
-                     + std::to_string(localtm->tm_min) + "-"
-                     + std::to_string(localtm->tm_sec);
+        std::string t_mes = ((localtm->tm_mon +1 < 10) ? ("0" + std::to_string(localtm->tm_mon + 1)) : std::to_string(localtm->tm_mon + 1));
+        std::string t_mday = ((localtm->tm_mday < 10) ? ("0" + std::to_string(localtm->tm_mday)) : std::to_string(localtm->tm_mday));
+        std::string t_hour = ((localtm->tm_hour < 10) ? ("0" + std::to_string(localtm->tm_hour)) : std::to_string(localtm->tm_hour));
+        std::string t_min = ((localtm->tm_min < 10) ? ("0" + std::to_string(localtm->tm_min)) : std::to_string(localtm->tm_min));
+        std::string t_sec = ((localtm->tm_sec < 10) ? ("0" + std::to_string(localtm->tm_sec)) : std::to_string(localtm->tm_sec));
 
-        std::string file_name = "messages.txt";
-        std::string filename = file_path + file_date + "-" + file_name;
+        file_date = std::to_string(localtm->tm_year + 1900)
+                     + "-"
+                     + t_mes
+                     + "-"
+                     + t_mday
+                     + "_"
+                     + t_hour
+                     + "-"
+                     + t_min
+                     + "-"
+                     + t_sec;
+
+        // file path and name
+        std::string file_path = "diff_control/messages/" + file_date + "/";
+        std::string file_name = "messages";
+        std::string file_extension = ".yaml";
+
+        // create the directory
+        std::filesystem::create_directories(file_path);
+
+        /*
+         * Create one file for each message type
+         */
+
+        // VRPN Messages
+        std::string vrpn_filename = file_path + "_vrpn_" + file_name + file_extension;
+        this->savePoseMessageToFile(vrpn_filename, "vrpn_poses", vrpn_twist_list_);
+
+        // SLAM Messages
+        std::string slam_filename = file_path + "_slam_" + file_name + file_extension;
+        this->savePoseWithCovarianceStampedMessageToFile(slam_filename, "slam_poses", slam_pose_list_);
+
+        // Goal Messages
+        std::string goal_filename = file_path + "_goal_" + file_name + file_extension;
+        this->savePoseMessageToFile(goal_filename, "goal_poses", goal_list_);
+
+        // VRPN_CMD_VEL Messages
+        std::string vrpn_cmd_vel_filename = file_path + "_vrpn_cmd_vel_" + file_name + file_extension;
+        this->saveTwistMessageToFile(vrpn_cmd_vel_filename, "vrpn_cmd_vel", vrpn_cmd_vel_list_);
+
+        // SLAM_CMD_VEL Messages
+        std::string slam_cmd_vel_filename = file_path + "_slam_cmd_vel_" + file_name + file_extension;
+        this->saveTwistMessageToFile(slam_cmd_vel_filename, "slam_cmd_vel", slam_cmd_vel_list_);
+
+
+        std::cout << "\n\n\nMessages Saved to : " << file_path << "\n\n\n" << std::endl;
+
+    }
+
+    void savePoseMessageToFile(std::string filename, std::string message_name, std::vector<geometry_msgs::PoseStamped> message_list)
+    {
+        // Try to open file
         std::ofstream file(filename);
 
         if (!file.is_open())
@@ -582,66 +634,93 @@ public:
         }
 
         // Header
-        file << "Messages Received and Published by the Differential Controller\n\n";
-        file << "===============================================\n\n";
+        file << "# ===============================================\n\n";
+        file << "# Messages Received and Published by the Differential Controller\n";
+        file << "# File: " << filename << "\n\n";
+        file << "# ===============================================\n\n";
 
         // save the vrpn messages
-        file << "VRPN Messages: \n";
-        for (int i = 0; i < vrpn_twist_list_.size(); i++)
+        file << "Message_name: " << message_name << "\n";
+        file << "number_of_messages: " << message_list.size() << "\n";
+        file << "messages: \n";
+        for (int i = 0; i < message_list.size(); i++)
         {
-            file << "Message " << i << ": \n";
-            file << "Position: (" << vrpn_twist_list_[i].pose.position.x << ", " << vrpn_twist_list_[i].pose.position.y << ", " << vrpn_twist_list_[i].pose.position.z << ")\n";
-            file << "Orientation: (" << vrpn_twist_list_[i].pose.orientation.x << ", " << vrpn_twist_list_[i].pose.orientation.y << ", " << vrpn_twist_list_[i].pose.orientation.z << ", " << vrpn_twist_list_[i].pose.orientation.w << ")\n";
+            file << "    - {id: " << i << ", ";
+            file << "Time: " << message_list[i].header.stamp << ", ";
+            file << "Position: [" << message_list[i].pose.position.x << ", " << message_list[i].pose.position.y << ", " << message_list[i].pose.position.z << "] , ";
+            file << "Orientation: [" << message_list[i].pose.orientation.x << ", " << message_list[i].pose.orientation.y << ", " << message_list[i].pose.orientation.z << ", " << message_list[i].pose.orientation.w << "] ";
+            file << "}\n";
         }
-
-        file << "\n\n===============================================\n\n";
-
-        // save the slam messages
-        file << "SLAM Messages: \n";
-        for (int i = 0; i < slam_pose_list_.size(); i++)
-        {
-            file << "Message " << i << ": \n";
-            file << "Position: (" << slam_pose_list_[i].pose.pose.position.x << ", " << slam_pose_list_[i].pose.pose.position.y << ", " << slam_pose_list_[i].pose.pose.position.z << ")\n";
-            file << "Orientation: (" << slam_pose_list_[i].pose.pose.orientation.x << ", " << slam_pose_list_[i].pose.pose.orientation.y << ", " << slam_pose_list_[i].pose.pose.orientation.z << ", " << slam_pose_list_[i].pose.pose.orientation.w << ")\n";
-        }
-
-        file << "\n\n===============================================\n\n";
-
-        // save the goal messages
-        file << "Goal Messages: \n";
-        for (int i = 0; i < goal_list_.size(); i++)
-        {
-            file << "Message " << i << ": \n";
-            file << "Position: (" << goal_list_[i].pose.position.x << ", " << goal_list_[i].pose.position.y << ", " << goal_list_[i].pose.position.z << ")\n";
-            file << "Orientation: (" << goal_list_[i].pose.orientation.x << ", " << goal_list_[i].pose.orientation.y << ", " << goal_list_[i].pose.orientation.z << ", " << goal_list_[i].pose.orientation.w << ")\n";
-        }
-
-        file << "\n\n===============================================\n\n";
-
-        // save the cmd_vel messages
-        file << "\nVRPN_CMD_VEL Messages: \n";
-        for (int i = 0; i < vrpn_cmd_vel_list_.size(); i++)
-        {
-            file << "Message " << i << ": \n";
-            file << "Linear Velocity: " << vrpn_cmd_vel_list_[i].linear.x << "\n";
-            file << "Angular Velocity: " << vrpn_cmd_vel_list_[i].angular.z << "\n";
-        }
-
-        // save the cmd_vel messages
-        file << "\nSLAM_CMD_VEL Messages: \n";
-        for (int i = 0; i < slam_cmd_vel_list_.size(); i++)
-        {
-            file << "Message " << i << ": \n";
-            file << "Linear Velocity: " << slam_cmd_vel_list_[i].linear.x << "\n";
-            file << "Angular Velocity: " << slam_cmd_vel_list_[i].angular.z << "\n";
-        }
-
 
         // close and save file
         file.close();
+    }
 
-        std::cout << "\n\n\nMessages Saved to File: " << filename << "\n\n\n" << std::endl;
+    void savePoseWithCovarianceStampedMessageToFile(std::string filename, std::string message_name, std::vector<geometry_msgs::PoseWithCovarianceStamped> message_list)
+    {
+        // Try to open file
+        std::ofstream file(filename);
 
+        if (!file.is_open())
+        {
+            std::cerr << "Error opening file: " << filename << std::endl;
+            return;
+        }
+
+        // Header
+        file << "# ===============================================\n\n";
+        file << "# Messages Received and Published by the Differential Controller\n";
+        file << "# File: " << filename << "\n\n";
+        file << "# ===============================================\n\n";
+
+        // save the vrpn messages
+        file << "Message_name: " << message_name << "\n";
+        file << "number_of_messages: " << message_list.size() << "\n";
+        file << "messages: \n";
+        for (int i = 0; i < message_list.size(); i++)
+        {
+            file << "    - {id: " << i << ", ";
+            file << "Time: " << message_list[i].header.stamp << ", ";
+            file << "Position: [" << message_list[i].pose.pose.position.x << ", " << message_list[i].pose.pose.position.y << ", " << message_list[i].pose.pose.position.z << "] , ";
+            file << "Orientation: [" << message_list[i].pose.pose.orientation.x << ", " << message_list[i].pose.pose.orientation.y << ", " << message_list[i].pose.pose.orientation.z << ", " << message_list[i].pose.pose.orientation.w << "] ";
+            file << "}\n";
+        }
+
+        // close and save file
+        file.close();
+    }
+
+    void saveTwistMessageToFile(std::string filename, std::string message_name, std::vector<geometry_msgs::Twist> message_list)
+    {
+        // Try to open file
+        std::ofstream file(filename);
+
+        if (!file.is_open())
+        {
+            std::cerr << "Error opening file: " << filename << std::endl;
+            return;
+        }
+
+        // Header
+        file << "# ===============================================\n\n";
+        file << "# Messages Received and Published by the Differential Controller\n";
+        file << "# File: " << filename << "\n\n";
+        file << "# ===============================================\n\n";
+
+        // save the vrpn messages
+        file << "Message_name: " << message_name << "\n";
+        file << "number_of_messages: " << message_list.size() << "\n";
+        file << "messages: \n";
+        for (int i = 0; i < message_list.size(); i++)
+        {
+            file << "    - {id: " << i << ", ";
+            file << "Linear: " << message_list[i].linear.x << ", ";
+            file << "Angular: " << message_list[i].angular.z << " ";
+            file << "}\n";
+        }
+
+        // close and save file
+        file.close();
     }
 
 };

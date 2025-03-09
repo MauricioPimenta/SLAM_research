@@ -6,7 +6,7 @@
 
     <!-- Path Configurations -->
     <arg name="path_resolution" default="" />  <!-- Resolution of the path -->
-    <arg name="desired_vel" default="0.5" />        <!-- Desired velocity of the robot on each point -->
+    <arg name="desired_vel" default="0.2" />        <!-- Desired velocity of the robot on each point -->
     <arg name="path_type" default="LINEAR"/>
     <arg name="R" default="1.0" />
     <arg name="W" default="0.20" />
