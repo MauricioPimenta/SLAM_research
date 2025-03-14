@@ -44,6 +44,7 @@
 #include <geometry_msgs/Point.h>
 #include <geometry_msgs/Pose.h>
 #include <geometry_msgs/PoseStamped.h>
+#include <nav_msgs/Path.h>
 
 
 class PathPlanner
@@ -53,13 +54,15 @@ class PathPlanner
     ros::NodeHandle nh_;
     ros::NodeHandle priv_nh_;
 
-    ros::Timer publisher_timer_;
+    ros::Timer goal_pub_timer_;
 
     // Messages
     geometry_msgs::PoseStamped goal_msg_;
+    nav_msgs::Path goal_path_msg_;
 
     // Publishers
-    ros::Publisher goal_pub_;
+    ros::Publisher goal_pub_;   // Publish the goal point
+    ros::Publisher goal_path_pub_;  // Publish the list of points in the path
 
     /*
      * Parameters
@@ -117,7 +120,7 @@ class PathPlanner
         enum path_type path_type;
     }Path;
 
-    Path path_;
+    // Path path_;
     std::vector<Path> paths_;
     int number_of_paths_;
 
@@ -192,9 +195,10 @@ public:
     {
         // Create a publisher to publish the goal points
         goal_pub_ = nh_.advertise<geometry_msgs::PoseStamped>(goal_topic_name_, 1);
+        goal_path_pub_ = nh_.advertise<nav_msgs::Path>("/goal_path", 1, "true");
         // Create a timer to publish the one point of the path as the goal each time it is called
         ros::Duration time_to_publish_goal = ros::Duration(1.0 / frequency_to_publish_goal_);
-        publisher_timer_ = nh_.createTimer(time_to_publish_goal, &PathPlanner::publishGoal, this);
+        goal_pub_timer_ = nh_.createTimer(time_to_publish_goal, &PathPlanner::publishGoal, this);
 
     }
 
@@ -344,6 +348,31 @@ public:
 
     }
 
+    void publishGoalPath()
+    {
+        ros::Time start_time = ros::Time::now();
+        // Publish the whole Path
+        goal_path_msg_.header.frame_id = frame_id_;
+        goal_path_msg_.header.stamp = start_time;
+
+        for (int i=0; i < paths_.size(); i++)
+        {
+            // Poses
+            for (int j=0; j < paths_[i].num_points; j++)
+            {
+                // Each Pose = Header + pose
+                int index = i*paths_[i].num_points + j;
+                // add the point of the path to the goal_path message at the index
+                goal_path_msg_.poses[index].header.stamp = start_time + ros::Duration(index/frequency_to_publish_goal_);
+                goal_path_msg_.poses[index].header.frame_id = frame_id_;
+                goal_path_msg_.poses[index].header.seq = static_cast<uint32_t>(index);
+                goal_path_msg_.poses[index].pose = paths_[i].points[j].pose;
+            }
+        }
+
+        goal_path_pub_.publish(goal_path_msg_);
+    }
+
     /**-----------------------------------------------------------------------------------------------------------------------
      **                                                  createLinearPath
      *?  Create a Linear Path from the points loaded from the .yaml file.
@@ -413,6 +442,9 @@ public:
 
             // Insert the path in the list of paths
             paths_.push_back(temp_path);
+
+            // Publish the whole Path
+            goal_path_msg_.header.frame_id = frame_id_;
         }
     }
 

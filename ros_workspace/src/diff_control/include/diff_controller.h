@@ -34,7 +34,7 @@
 #include <ros/ros.h>
 
 
-#include <geometry_msgs/Twist.h>
+#include <geometry_msgs/TwistStamped.h>
 #include <geometry_msgs/PoseWithCovarianceStamped.h>
 #include <geometry_msgs/PoseStamped.h>
 #include <geometry_msgs/Pose.h>
@@ -126,12 +126,12 @@ private:
      * ROS Messages
      */
     geometry_msgs::PoseStamped vrpn_twist_;     // vrpn twist message
-    geometry_msgs::Twist vrpn_cmd_vel_;         // vrpn velocity command
+    geometry_msgs::TwistStamped vrpn_cmd_vel_;         // vrpn velocity command
 
     geometry_msgs::PoseWithCovarianceStamped slam_pose_;    // pose message from the slam_toolbox
-    geometry_msgs::Twist slam_cmd_vel_;                     // slam_toolbox velocity command
+    geometry_msgs::TwistStamped slam_cmd_vel_;                     // slam_toolbox velocity command
 
-    geometry_msgs::Twist cmd_vel_;    // message use for the velocity command published in cmd_vel
+    geometry_msgs::TwistStamped cmd_vel_;    // message use for the velocity command published in cmd_vel
     std::optional<geometry_msgs::PoseStamped> goal_;    // goal message type - this is optional because the goal may not be received
 
     turtlesim::Pose turtle_pose_;   // turtle pose message
@@ -145,12 +145,12 @@ private:
      * Arrays and Lists
      */
     std::vector<geometry_msgs::PoseStamped> vrpn_twist_list_;       // list to record all messages received from the vrpn topic
-    std::vector<geometry_msgs::Twist> vrpn_cmd_vel_list_;           // list to record all velocity commands generated using the vrpn poses to calculate the control
+    std::vector<geometry_msgs::TwistStamped> vrpn_cmd_vel_list_;           // list to record all velocity commands generated using the vrpn poses to calculate the control
 
     std::vector<geometry_msgs::PoseWithCovarianceStamped> slam_pose_list_;  // list to record all messages received from the slam_toolbox topic
-    std::vector<geometry_msgs::Twist> slam_cmd_vel_list_;                   // list to record all velocity commands generated using the slam_toolbox poses to calculate the control
+    std::vector<geometry_msgs::TwistStamped> slam_cmd_vel_list_;                   // list to record all velocity commands generated using the slam_toolbox poses to calculate the control
 
-    std::vector<geometry_msgs::Twist> cmd_vel_list_;        // list to record all velocity commands published in the cmd_vel topic
+    std::vector<geometry_msgs::TwistStamped> cmd_vel_list_;        // list to record all velocity commands published in the cmd_vel topic
     std::vector<geometry_msgs::PoseStamped> goal_list_;     // list to record all goal messages received
 
     std::vector<turtlesim::Pose> turtle_pose_list_;         // list to record all turtle pose messages received
@@ -261,8 +261,8 @@ public:
         this->calculateControlSignals(limo_gazebo_pose_, goal_.value().pose, &cmd_vel_);
 
         ROS_INFO("\n\n****** Gazebo Control Signals: ******\n");
-        ROS_INFO("Linear Velocity: %.4f\n", cmd_vel_.linear.x);
-        ROS_INFO("Angular Velocity: %.4f\n", cmd_vel_.angular.z);
+        ROS_INFO("Linear Velocity: %.4f\n", cmd_vel_.twist.linear.x);
+        ROS_INFO("Angular Velocity: %.4f\n", cmd_vel_.twist.angular.z);
     }
 
 
@@ -329,8 +329,8 @@ public:
         this->calculateControlSignals(vrpn_twist_.pose, goal_.value().pose, &vrpn_cmd_vel_);
 
         ROS_INFO("\n\n****** VRPN Control Signals: ******\n");
-        ROS_INFO("Linear Velocity: %.4f\n", vrpn_cmd_vel_.linear.x);
-        ROS_INFO("Angular Velocity: %.4f\n", vrpn_cmd_vel_.angular.z);
+        ROS_INFO("Linear Velocity: %.4f\n", vrpn_cmd_vel_.twist.linear.x);
+        ROS_INFO("Angular Velocity: %.4f\n", vrpn_cmd_vel_.twist.angular.z);
     }
 
     /****************************************************************************************
@@ -363,18 +363,9 @@ public:
         // add the message to an array of all messages
         slam_pose_list_.push_back(slam_pose_);
 
-        // check if the desired position was received
-        if (!goal_)
-        {
-            ROS_INFO("\nDesired Position not received yet...\n");
-            return;
-        }
-        // calculate the velocity commands
-        this->calculateControlSignals(slam_pose_.pose.pose, goal_.value().pose, &slam_cmd_vel_);
+        
+        
 
-        ROS_INFO("\n\n====== SLAM_TOOLBOX Control Signals: ======\n");
-        ROS_INFO("Linear Velocity: %.4f\n", slam_cmd_vel_.linear.x);
-        ROS_INFO("Angular Velocity: %.4f\n", slam_cmd_vel_.angular.z);
 
     }
 
@@ -412,7 +403,7 @@ public:
      * @param cmd_vel geometry_msgs::Twist::Ptr - cmd_vel message to save the control signals
      * @return void
      *---------------------------------------------**/
-    void calculateControlSignals(geometry_msgs::Pose last_position, geometry_msgs::Pose desired_position, geometry_msgs::Twist *cmd_vel)
+    void calculateControlSignals(geometry_msgs::Pose last_position, geometry_msgs::Pose desired_position, geometry_msgs::TwistStamped *cmd_vel)
     {
 
         // Convert the orientation from quaternion to Euler angles using tf2
@@ -490,17 +481,17 @@ public:
         ROS_WARN("Angular Velocity: %.4f\n", w);
 
         // Set the velocity commands
-        cmd_vel->linear.x = u;
-        cmd_vel->angular.z = w;
+        cmd_vel->twist.linear.x = u;
+        cmd_vel->twist.angular.z = w;
 
         // Uses tanh to limit the values of the velocities
-        cmd_vel->linear.x = vmax*tanh(u);
-        cmd_vel->angular.z = wmax*tanh(w);
+        cmd_vel->twist.linear.x = vmax*tanh(u);
+        cmd_vel->twist.angular.z = wmax*tanh(w);
 
 
         ROS_ERROR("\n\n\nControl Signals Saved...\n");
-        ROS_ERROR("Linear Velocity: %.4f\n", cmd_vel->linear.x);
-        ROS_ERROR("Angular Velocity: %.4f\n", cmd_vel->angular.z);
+        ROS_ERROR("Linear Velocity: %.4f\n", cmd_vel->twist.linear.x);
+        ROS_ERROR("Angular Velocity: %.4f\n", cmd_vel->twist.angular.z);
 
 
     }
@@ -518,7 +509,7 @@ public:
 
     void vrpn_controlLoop(const ros::SteadyTimerEvent&)
     {
-        ROS_INFO("\nControl Loop Timer Callback...\n");
+        ROS_INFO("\n VRPN Control Loop Timer Callback...\n");
 
         // publish the velocity commands
         vrpn_cmd_vel_pub_.publish(vrpn_cmd_vel_);
@@ -529,7 +520,25 @@ public:
 
     void slam_controlLoop(const ros::SteadyTimerEvent&)
     {
-        ROS_INFO("\nControl Loop Timer Callback...\n");
+        
+        ROS_INFO("\nSLAM Control Loop Timer Callback...\n");
+
+        // check if the desired position was received
+        if (!goal_)
+        {
+            ROS_INFO("\nDesired Position not received yet...\n");
+            return;
+        }
+
+        // calculate the velocity commands
+        this->calculateControlSignals(slam_pose_.pose.pose, goal_.value().pose, &slam_cmd_vel_);
+
+        ROS_INFO("\n\n====== SLAM_TOOLBOX Control Signals: ======\n");
+        ROS_INFO("Linear Velocity: %.4f\n", slam_cmd_vel_.twist.linear.x);
+        ROS_INFO("Angular Velocity: %.4f\n", slam_cmd_vel_.twist.angular.z);
+
+        slam_cmd_vel_.header.stamp = ros::Time::now();
+        slam_cmd_vel_.header.frame_id = "base_link";
 
         // publish the velocity commands
         slam_cmd_vel_pub_.publish(slam_cmd_vel_);
@@ -545,8 +554,10 @@ public:
 
         std::cout << "Stopping Robot...\n\n" << std::endl;
         // send a message to stop the robot
-        cmd_vel_.linear.x = 0.0;
-        cmd_vel_.angular.z = 0.0;
+        cmd_vel_.header.stamp = ros::Time::now();
+        cmd_vel_.header.frame_id = "base_link";
+        cmd_vel_.twist.linear = geometry_msgs::Vector3();   // set the linear velocity to zero
+        cmd_vel_.twist.angular = geometry_msgs::Vector3();  // set the angular velocity to zero
         cmd_vel_pub_.publish(cmd_vel_);
 
         // save a file with all messages received and published and their timestamps
@@ -691,7 +702,7 @@ public:
         file.close();
     }
 
-    void saveTwistMessageToFile(std::string filename, std::string message_name, std::vector<geometry_msgs::Twist> message_list)
+    void saveTwistMessageToFile(std::string filename, std::string message_name, std::vector<geometry_msgs::TwistStamped> message_list)
     {
         // Try to open file
         std::ofstream file(filename);
@@ -715,8 +726,9 @@ public:
         for (int i = 0; i < message_list.size(); i++)
         {
             file << "    - {id: " << i << ", ";
-            file << "Linear: " << message_list[i].linear.x << ", ";
-            file << "Angular: " << message_list[i].angular.z << " ";
+            file << "Time: " << message_list[i].header.stamp << ", ";
+            file << "Linear: " << message_list[i].twist.linear.x << ", ";
+            file << "Angular: " << message_list[i].twist.angular.z << " ";
             file << "}\n";
         }
 
