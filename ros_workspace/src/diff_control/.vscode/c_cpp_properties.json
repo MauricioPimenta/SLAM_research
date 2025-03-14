@@ -3,12 +3,11 @@
       {
         "browse": {
           "databaseFilename": "${default}",
-          "limitSymbolsToIncludedHeaders": true
+          "limitSymbolsToIncludedHeaders": false
         },
         "includePath": [
-          "/opt/ros/noetic/include/**",
-          "/usr/include/**",
-          "${workspaceFolder}/include/**"
+          "${workspaceFolder}/include/**",
+          "/opt/ros/noetic/include/**"
         ],
         "name": "ROS",
         "intelliSenseMode": "gcc-x64",

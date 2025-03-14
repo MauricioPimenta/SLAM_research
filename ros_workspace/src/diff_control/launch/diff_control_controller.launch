@@ -4,7 +4,7 @@
     <arg name="robot" default="" />
 
     <!-- Controller Parameters Arguments -->
-    <arg name="control_frequency" default="100.0" />
+    <arg name="control_frequency" default="30.0" />
 
     <!-- Topic names -->
     <arg name="cmd_vel_topic" default="$(arg robot)/cmd_vel" />

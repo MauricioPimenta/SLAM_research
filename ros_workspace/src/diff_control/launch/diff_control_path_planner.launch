@@ -13,7 +13,7 @@
     <arg name="tempo_experimento" default="120.0" />
 
     <!-- Publishing Rate -->
-    <arg name="pub_frequency" default="60" />
+    <arg name="pub_frequency" default="30" />
 
     <!-- Path File with positions to generate the Linear Path -->
     <arg name="path_file" default="$(find diff_control)/config/paths/path_positions.yaml" />

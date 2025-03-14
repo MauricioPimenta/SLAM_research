@@ -1,0 +1,17 @@
+<launch>
+    <!-- Args for the launcher -->
+    <arg name="Xoffset" default="0.0" />
+    <arg name="Yoffset" default="0.0"  />
+    <arg name="ns" default="" />
+
+    <group ns="$(arg ns)">
+        <!-- Launch the fix_lidar_number.py node -->
+        <node name="fix_lidar_number" pkg="scan_fixed" type="fix_lidar_number.py" output="screen">
+            <param name="desired_scan_size" value="460" />
+        </node>
+    </group>
+
+
+    <!-- Static transformation -->
+    <node pkg="tf2_ros" type="static_transform_publisher" name="fix_lidar_transform" args="$(arg Xoffset) $(arg Yoffset) 0.0 0 0 0 laser_link laser_fixed" />
+</launch>

@@ -446,7 +446,7 @@ public:
         temp_path.num_points = frequency_to_publish_goal_*time_of_experiment_;
 
         // Populate the points in the path using the resolution and the time of the experiment
-        for (double t = 0; t < time_of_experiment_; t += time_of_experiment_/temp_path.num_points)
+        for (double t = 0; t <= time_of_experiment_; t += time_of_experiment_/temp_path.num_points)
         {
             path_point temp_point;
 

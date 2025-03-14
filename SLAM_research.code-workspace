@@ -82,7 +82,10 @@
 			"cinttypes": "cpp",
 			"typeindex": "cpp",
 			"typeinfo": "cpp",
-			"variant": "cpp"
-		}
+			"variant": "cpp",
+			"codecvt": "cpp",
+			"filesystem": "cpp"
+		},
+		"C_Cpp.loggingLevel": "Debug"
 	}
 }

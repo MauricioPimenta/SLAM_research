@@ -25,6 +25,7 @@
 #include <string>
 
 #include <filesystem> // to use filesystem
+
 #include <ctime> // to use time
 
 #include <optional> // to use optional type
@@ -564,8 +565,8 @@ public:
         // save the messages to a file
         std::string file_date;
         // get the current date and time
-        time_t now = time(0);
-        struct tm *localtm = localtime(&now);
+        std::time_t now = time(0);
+        std::tm *localtm = localtime(&now);
 
         std::string t_mes = ((localtm->tm_mon +1 < 10) ? ("0" + std::to_string(localtm->tm_mon + 1)) : std::to_string(localtm->tm_mon + 1));
         std::string t_mday = ((localtm->tm_mday < 10) ? ("0" + std::to_string(localtm->tm_mday)) : std::to_string(localtm->tm_mday));
