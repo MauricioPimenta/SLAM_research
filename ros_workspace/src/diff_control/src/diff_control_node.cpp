@@ -13,7 +13,7 @@
 
 #include <csignal> // to catch the SIGINT signal - ctrl+c
 
-#include "diff_controller.h"
+#include "diff_control.h"
 #include "path_planner.h"
 
 bool signal_SIGINT = false;
@@ -36,7 +36,7 @@ int main(int argc, char *argv[])
 
     // Initialize the ROS node without the ctrl+c handler so we can use our own
     ros::init(argc, argv, "diff_control", ros::init_options::NoSigintHandler);
-    DiffController *controller = new DiffController();
+    DiffControl *controller = new DiffControl("");
 
     // PathPlanner path_planner_generator = PathPlanner();
 

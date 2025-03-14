@@ -71,12 +71,12 @@ class PathPlanner
     // Map Parameters
     std::string name_;       // Name of the path
     std::string path_type_; // Type of the path
-    std::string frame_id_ {"world_frame"};  // Frame ID to publish the goal points
+    std::string frame_id_ {"world"};  // Frame ID to publish the goal points
     int num_points_;        // Number of points in the path
     std::vector<geometry_msgs::Point> points_;
 
     double desired_velocity_;
-    double path_resolution_ = 0.001 /* meters */;
+    double path_resolution_  {0.001} /* meters */;
     double time_to_reach_goal_;
 
     double frequency_to_publish_goal_; // Hz
@@ -194,8 +194,9 @@ public:
     void createPublishers()
     {
         // Create a publisher to publish the goal points
-        goal_pub_ = nh_.advertise<geometry_msgs::PoseStamped>(goal_topic_name_, 1);
-        goal_path_pub_ = nh_.advertise<nav_msgs::Path>("/goal_path", 1, "true");
+        goal_pub_ = nh_.advertise<geometry_msgs::PoseStamped>(goal_topic_name_, 1, true);
+        std::string goal_path_topic = goal_topic_name_ + "_path";
+        goal_path_pub_ = nh_.advertise<nav_msgs::Path>(goal_path_topic, 1, true);
         // Create a timer to publish the one point of the path as the goal each time it is called
         ros::Duration time_to_publish_goal = ros::Duration(1.0 / frequency_to_publish_goal_);
         goal_pub_timer_ = nh_.createTimer(time_to_publish_goal, &PathPlanner::publishGoal, this);
@@ -213,6 +214,8 @@ public:
 
         priv_nh_.param<double>("path_resolution", path_resolution_, desired_velocity_ / frequency_to_publish_goal_);
         priv_nh_.param<std::string>("goal_topic_name", goal_topic_name_, "/goal");
+
+        priv_nh_.param<std::string>("frame_id", frame_id_, "world");
 
     }
 
@@ -316,6 +319,14 @@ public:
         static int current_path = 0;
         static int current_point = 0;
 
+        if (current_path == 0 && current_point == 0)
+        {
+            ROS_INFO("Publishing Goal Path...");
+            publishGoalPath();
+        }
+        else
+        goal_path_pub_.publish(goal_path_msg_);
+
         if (current_path < paths_.size() && current_point < paths_[current_path].points.size())
         {
             // Publish the current point as the goal
@@ -350,26 +361,39 @@ public:
 
     void publishGoalPath()
     {
+        goal_path_msg_ = nav_msgs::Path();
+
         ros::Time start_time = ros::Time::now();
         // Publish the whole Path
         goal_path_msg_.header.frame_id = frame_id_;
         goal_path_msg_.header.stamp = start_time;
 
+        ROS_WARN("T1");
         for (int i=0; i < paths_.size(); i++)
         {
+            ROS_WARN("\nTi: %d", i);
             // Poses
             for (int j=0; j < paths_[i].num_points; j++)
             {
+                ROS_WARN("\nTj: %d", j);
                 // Each Pose = Header + pose
                 int index = i*paths_[i].num_points + j;
+                ROS_WARN("\nindex: %d", index);
+                goal_path_msg_.poses.push_back(geometry_msgs::PoseStamped());
+                ROS_WARN("\nPushed");
                 // add the point of the path to the goal_path message at the index
-                goal_path_msg_.poses[index].header.stamp = start_time + ros::Duration(index/frequency_to_publish_goal_);
+                goal_path_msg_.poses[index].header.stamp = start_time ;//+ ros::Duration(index/frequency_to_publish_goal_);
+                ROS_WARN("\nTime");
                 goal_path_msg_.poses[index].header.frame_id = frame_id_;
+                ROS_WARN("\nframe");
                 goal_path_msg_.poses[index].header.seq = static_cast<uint32_t>(index);
+                ROS_WARN("\nseq");
                 goal_path_msg_.poses[index].pose = paths_[i].points[j].pose;
+                ROS_WARN("\npose");
             }
         }
 
+        ROS_INFO("Publishing Goal Path...");
         goal_path_pub_.publish(goal_path_msg_);
     }
 
@@ -442,10 +466,8 @@ public:
 
             // Insert the path in the list of paths
             paths_.push_back(temp_path);
-
-            // Publish the whole Path
-            goal_path_msg_.header.frame_id = frame_id_;
         }
+
     }
 
     /**-----------------------------------------------------------------------------------------------------------------------

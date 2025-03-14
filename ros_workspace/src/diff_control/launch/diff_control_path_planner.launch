@@ -3,6 +3,7 @@
 
     <arg name="robot" default="L1" />
     <arg name="goal_topic" default="$(arg robot)/goal" />
+    <arg name="frame_id" default="world" />
 
     <!-- Path Configurations -->
     <arg name="path_resolution" default="" />  <!-- Resolution of the path -->
@@ -22,6 +23,8 @@
     <node pkg="diff_control" type="my_path_planner_node" name="path_planner" output="screen">
         <rosparam command="load" file="$(arg path_file)"/>
         <param name="path_type" value="$(arg path_type)" />
+        
+        <param name="frame_id" value="$(arg frame_id)" />
 
         <param name="goal_topic_name" value="$(arg goal_topic)" />
         <param name="path_resolution" value="$(arg path_resolution)" />
