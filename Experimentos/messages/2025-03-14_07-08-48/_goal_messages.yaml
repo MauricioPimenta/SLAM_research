@@ -1,0 +1,11 @@
+# ===============================================
+
+# Messages Received and Published by the Differential Controller
+# File: diff_control/messages/2025-03-14_07-08-48/_goal_messages.yaml
+
+# ===============================================
+
+Message_name: goal_poses
+number_of_messages: 1
+messages: 
+    - {id: 0, Time: 0.000000000, Position: [0, 0, 0] , Orientation: [0, 0, 0, 1] }
