@@ -71,7 +71,7 @@ class PathPlanner
     // Map Parameters
     std::string name_;       // Name of the path
     std::string path_type_; // Type of the path
-    std::string frame_id_ {"world"};  // Frame ID to publish the goal points
+    std::string frame_id_;  // Frame ID to publish the goal points
     int num_points_;        // Number of points in the path
     std::vector<geometry_msgs::Point> points_;
 
@@ -85,7 +85,8 @@ class PathPlanner
 
 
     // Lemniscata Parameters
-    double R_;
+    double Rx_;
+    double Ry_;
     double w_;
     double time_of_experiment_;
 
@@ -144,7 +145,7 @@ public:
         else if (path_type_ == "LEMNISCATA")
         {
             loadLemniscataParameters();
-            createLemniscataPath(R_, w_);
+            createLemniscataPath(Rx_, Ry_, w_);
         }
         else
         {
@@ -167,7 +168,7 @@ public:
         else if (path_type == "LEMNISCATA")
         {
             loadLemniscataParameters();
-            createLemniscataPath(R_, w_);
+            createLemniscataPath(Rx_, Ry_, w_);
         }
         else
         {
@@ -304,11 +305,12 @@ public:
     void loadLemniscataParameters()
     {
         // Retrieve simple parameters
-        priv_nh_.param<double>("R", R_, 2.0);
+        priv_nh_.param<double>("R", Rx_, 2.0);
+        priv_nh_.param<double>("R", Ry_, 2.0);
         priv_nh_.param<double>("w", w_, 2*M_PI/40);
         priv_nh_.param<double>("tempo_experimento", time_of_experiment_, 60.0 /* seconds */);
 
-        ROS_INFO("Lemniscata Parameters: R = %.2f, w = %.2f", R_, w_);
+        ROS_INFO("Lemniscata Parameters: Rx = %.2f, Ry = %.2f, w = %.2f", Rx_, Ry_, w_);
     }
 
 
@@ -369,6 +371,7 @@ public:
         goal_path_msg_.header.stamp = start_time;
 
         ROS_WARN("T1");
+        int index = 0;
         for (int i=0; i < paths_.size(); i++)
         {
             ROS_WARN("\nTi: %d", i);
@@ -377,7 +380,6 @@ public:
             {
                 ROS_WARN("\nTj: %d", j);
                 // Each Pose = Header + pose
-                int index = i*paths_[i].num_points + j;
                 ROS_WARN("\nindex: %d", index);
                 goal_path_msg_.poses.push_back(geometry_msgs::PoseStamped());
                 ROS_WARN("\nPushed");
@@ -390,6 +392,8 @@ public:
                 ROS_WARN("\nseq");
                 goal_path_msg_.poses[index].pose = paths_[i].points[j].pose;
                 ROS_WARN("\npose");
+
+                index++;
             }
         }
 
@@ -482,7 +486,7 @@ public:
      *@param none none
      *@return void
      *-----------------------------------------------------------------------------------------------------------------------**/
-    void createLemniscataPath(double R, double w)
+    void createLemniscataPath(double Rx, double Ry, double w)
     {
         // trajetoria em lemniscata:
         // Xd = Rcos(wt)
@@ -498,19 +502,20 @@ public:
         // vel*t_exp = total_dist -> total_dist/resolution = num_points
         // n = vel*t_exp/(vel/freq)
         temp_path.num_points = frequency_to_publish_goal_*time_of_experiment_;
+        ROS_INFO("Number of points in the lemniscata path: %d", temp_path.num_points);
 
         // Populate the points in the path using the resolution and the time of the experiment
         for (double t = 0; t <= time_of_experiment_; t += time_of_experiment_/temp_path.num_points)
         {
             path_point temp_point;
 
-            temp_point.pose.position.x = R*cos(w*t);
-            temp_point.pose.position.y = R*sin(2*w*t);
+            temp_point.pose.position.x = Rx*cos(w*t);
+            temp_point.pose.position.y = Ry*sin(2*w*t);
             temp_point.pose.position.z = 0.0;
 
             // Orientation of the point is the tangent of the path or trajectory
             // For lemniscata paths, the orientation is the angle of the tangent to the curve
-            double theta = atan2(2*R*w*cos(2*w*t), -R*w*sin(w*t));
+            double theta = atan2(2*Ry*w*cos(2*w*t), -Rx*w*sin(w*t));
             // convert theta to quaternion
             tf2::Quaternion q;
             q.setRPY(0, 0, theta);

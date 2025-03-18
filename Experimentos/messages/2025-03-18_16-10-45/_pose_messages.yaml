@@ -1,0 +1,11 @@
+# ===============================================
+
+# Messages Received and Published by the Differential Controller
+# File: diff_control/messages/2025-03-18_16-10-45//_pose_messages.yaml
+
+# ===============================================
+
+Message_name: slam_poses
+number_of_messages: 1
+messages: 
+    - {id: 0, Time: 1742325024.553003000, Position: [0.0503022, 0.477592, 0] , Orientation: [0, 0, -0.05641, 0.998408] }

@@ -46,7 +46,7 @@ def compute_error(measured_times, measured_positions, goal_times, goal_positions
 
 def main():
     # Folder path
-    folder = 'messages/2025-03-14_08-19-00_SLAM_HOUSE/'
+    folder = 'messages/2025-03-18_17-17-48/'
 
     # File paths (ensure these files are in your working directory)
     goal_file = folder + '_goal_messages.yaml'

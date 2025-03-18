@@ -3,13 +3,14 @@
 
     <arg name="robot" default="L1" />
     <arg name="goal_topic" default="$(arg robot)/goal" />
-    <arg name="frame_id" default="world" />
+    <arg name="frame_id" default="map" />
 
     <!-- Path Configurations -->
     <arg name="path_resolution" default="" />  <!-- Resolution of the path -->
     <arg name="desired_vel" default="0.2" />        <!-- Desired velocity of the robot on each point -->
     <arg name="path_type" default="LINEAR"/>
-    <arg name="R" default="1.0" />
+    <arg name="Rx" default="1.0" />
+    <arg name="Ry" default="1.0" />
     <arg name="W" default="0.20" />
     <arg name="tempo_experimento" default="120.0" />
 
@@ -31,7 +32,8 @@
         <param name="desired_vel" value="$(arg desired_vel)" />
         <param name="pub_frequency" value="$(arg pub_frequency)" />
 
-        <param name="R" value="$(arg R)" />
+        <param name="Rx" value="$(arg Rx)" />
+        <param name="Ry" value="$(arg Ry)" />
         <param name="W" value="$(arg W)" />
         <param name="tempo_experimento" value="$(arg tempo_experimento)" />
     </node>

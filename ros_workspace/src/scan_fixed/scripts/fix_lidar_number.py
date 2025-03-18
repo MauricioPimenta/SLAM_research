@@ -57,13 +57,14 @@ class LaserScanAdjuster:
                 fixed_scan.angle_increment = (fixed_scan.angle_max - fixed_scan.angle_min) / scan_size
 
                 rospy.loginfo_once("Updated angle increment: %f", fixed_scan.angle_increment)
+
         # if scan size is less than 460, add missing ranges regularly spaced within the scan
         # with values equals the mean of the previous and next measurement values within the scan range vector
         elif scan_size < self.desired_scan_size:
             rospy.logwarn_once('scan size smaller than 460. Adding missing measurements')
             fixed_ranges = list(msg.ranges)
             fixed_intensities = list(msg.intensities)
-            new_measure_offset = scan_size / (self.desired_scan_size - scan_size)
+            new_measure_offset = (int) (scan_size / (self.desired_scan_size - scan_size))
             rospy.loginfo_once('including measurements at every %dth index', new_measure_offset)
 
             for i in range(1, (self.desired_scan_size-1)) :
@@ -76,22 +77,22 @@ class LaserScanAdjuster:
                     if fixed_ranges[i] == 0.0 or fixed_ranges[i] == float('inf'):
                         fixed_ranges.insert(i, fixed_ranges[i+1])
                         fixed_intensities.insert(i, fixed_intensities[i+1])
-                        rospy.loginfo("inserting new measurement at index %d: %f", i, (fixed_ranges[i]))
-                        rospy.loginfo("inserting new intensity at index %d: %f", i, (fixed_intensities[i]))
+                        rospy.loginfo_once("inserting new measurement at index %d: %f", i, (fixed_ranges[i]))
+                        rospy.loginfo_once("inserting new intensity at index %d: %f", i, (fixed_intensities[i]))
 
                     # if the next measure is not valid, copy the previous measurement value
                     elif fixed_ranges[i+1] == 0.0 or fixed_ranges[i+1] == float('inf'):
                         fixed_ranges.insert(i, fixed_ranges[i])
                         fixed_intensities.insert(i, fixed_intensities[i])
-                        rospy.loginfo("inserting new measurement at index %d: %f", i, (fixed_ranges[i]))
-                        rospy.loginfo("inserting new intensity at index %d: %f", i, (fixed_intensities[i]))
+                        rospy.loginfo_once("inserting new measurement at index %d: %f", i, (fixed_ranges[i]))
+                        rospy.loginfo_once("inserting new intensity at index %d: %f", i, (fixed_intensities[i]))
 
                     # if both previous and next measures are valid, insert the mean of the two
                     else:
                         fixed_ranges.insert(i, (fixed_ranges[i-1] + fixed_ranges[i]) / 2)
                         fixed_intensities.insert(i, (fixed_intensities[i-1] + fixed_intensities[i]) / 2)
-                        rospy.loginfo("inserting new measurement at index %d: %f", i, (fixed_ranges[i]))
-                        rospy.loginfo("inserting new intensity at index %d: %f", i, (fixed_intensities[i]))
+                        rospy.loginfo_once("inserting new measurement at index %d: %f", i, (fixed_ranges[i]))
+                        rospy.loginfo_once("inserting new intensity at index %d: %f", i, (fixed_intensities[i]))
 
 
             rospy.loginfo_once('updating ranges, intensities and angle increment')
@@ -104,31 +105,28 @@ class LaserScanAdjuster:
 
         # if scan size is greater than 460, remove ranges that are 0.0 or inf
         elif scan_size > self.desired_scan_size :
+            rospy.logwarn_once('scan size GREATER than 460. Removing measurements...')
             fixed_ranges = []
             fixed_intensities = []
-            for i in range(0, scan_size):
-                if msg.ranges[i] == 0.0 or msg.ranges[i] == float('inf'):
-                    continue
+            offset = (int)(scan_size / abs(self.desired_scan_size - scan_size))
+            rospy.loginfo_once('removing measurements at every %dth index', offset)
+
+            for i in range(0, (scan_size-1)) :
+                # if multiple of offset, dont copy the measurement value
+                if i!=0 and i % offset == 0 :
+                    rospy.loginfo_once("removing measurement at index %d: %f", i, (msg.ranges[i]))
+                    rospy.loginfo_once("removing intensity at index %d: %f", i, (msg.ranges[i]))
                 else:
                     fixed_ranges.append(msg.ranges[i])
                     fixed_intensities.append(msg.intensities[i])
+
+            rospy.loginfo_once('updating ranges, intensities and angle increment')
             fixed_scan.ranges = fixed_ranges
             fixed_scan.intensities = fixed_intensities
+            fixed_scan.angle_increment = (fixed_scan.angle_max - fixed_scan.angle_min) / self.desired_scan_size
+            fixed_scan.time_increment = msg.scan_time / self.desired_scan_size
 
-
-        # # Check that ranges is not empty and remove the last element
-        # if len(msg.ranges) > 1:
-        #     fixed_scan.ranges = msg.ranges[:-1]  # all but last element
-        # else:
-        #     # If there's only one element or none, just pass it through as is
-        #     fixed_scan.ranges = msg.ranges
-
-        # # Do the same for intensities if they exist
-        # if len(msg.intensities) == len(msg.ranges):
-        #     fixed_scan.intensities = msg.intensities[:-1]
-        # else:
-        #     # If intensities are different length or missing, just copy directly
-        #     fixed_scan.intensities = msg.intensities
+            rospy.loginfo_once("fixed_scan size: %d", len(fixed_scan.ranges))
 
 
 

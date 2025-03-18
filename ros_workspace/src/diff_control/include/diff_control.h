@@ -104,6 +104,7 @@ private:
     ros::Subscriber goal_sub_;  // subscriber to the goal topic
 
     ros::Publisher cmd_vel_pub_;    // publisher for the velocity commands
+    ros::Publisher cmd_vel_stamp_pub_;    // publisher for the velocity commands with timestamp
 
     ros::Timer control_loop_timer_;       // timer for the control loop that publish in cmd_vel
 
@@ -168,6 +169,7 @@ public:
         * Publishers
         */
         cmd_vel_pub_ = nh_.advertise<geometry_msgs::Twist>(cmd_vel_topic_, 1);
+        cmd_vel_stamp_pub_ = nh_.advertise<geometry_msgs::TwistStamped>(cmd_vel_topic_ + "_stamped", 1);
 
         // Start the timer that call the control loop
         // the callback in this timer should publish the control signal (cmd_vel) for vrpn and slam_toolbox
@@ -184,8 +186,12 @@ public:
         // send a message to stop the robot
         cmd_vel_.header.stamp = ros::Time::now();
         cmd_vel_.header.frame_id = "base_link";
-        cmd_vel_.twist.linear = geometry_msgs::Vector3();   // set the linear velocity to zero
-        cmd_vel_.twist.angular = geometry_msgs::Vector3();  // set the angular velocity to zero
+        cmd_vel_.twist.linear.x = 0;   // set the linear velocity to zero
+        cmd_vel_.twist.linear.y = 0;   // set the linear velocity to zero
+        cmd_vel_.twist.linear.z = 0;   // set the linear velocity to zero
+        cmd_vel_.twist.angular.x = 0;  // set the angular velocity to zero
+        cmd_vel_.twist.angular.y = 0;  // set the angular velocity to zero
+        cmd_vel_.twist.angular.z = 0;  // set the angular velocity to zero
         cmd_vel_pub_.publish(cmd_vel_);
 
         // save a file with all messages received and published and their timestamps
@@ -249,6 +255,41 @@ public:
 
     }
 
+    void publishControlSignals(const ros::TimerEvent&)
+    {
+
+        ROS_INFO("\nControl Loop Timer Callback...\n");
+
+        // check if the desired position was received
+        if (!goal_)
+        {
+            ROS_INFO("\nDesired Position not received yet...\n");
+            return;
+        }
+
+        // calculate the velocity commands
+        this->calculateControlSignals(pose_.pose.pose, goal_.value().pose, &cmd_vel_.twist);
+
+        ROS_INFO("\n\n====== SLAM_TOOLBOX Control Signals: ======\n");
+        ROS_INFO("Linear Velocity: %.4f\n", cmd_vel_.twist.linear.x);
+        ROS_INFO("Angular Velocity: %.4f\n", cmd_vel_.twist.angular.z);
+
+        // set the header of the message
+        static int seq = 0;
+        cmd_vel_.header.seq = seq;
+        cmd_vel_.header.stamp = ros::Time::now();
+        cmd_vel_.header.frame_id = "base_link";
+
+        // add the message to an array of all messages
+        cmd_vel_list_.push_back(cmd_vel_);
+
+        // publish the velocity commands
+        cmd_vel_pub_.publish(cmd_vel_.twist);
+        cmd_vel_stamp_pub_.publish(cmd_vel_);
+
+        seq++;
+    }
+
     /**----------------------------------------------
      **              calculateControlSignals
      *?  Calculates the control signals to move the robot to the desired position.
@@ -257,7 +298,7 @@ public:
      * @param cmd_vel geometry_msgs::Twist::Ptr - cmd_vel message to save the control signals
      * @return void
      *---------------------------------------------**/
-    void calculateControlSignals(geometry_msgs::Pose last_position, geometry_msgs::Pose desired_position, geometry_msgs::TwistStamped *cmd_vel)
+    void calculateControlSignals(geometry_msgs::Pose last_position, geometry_msgs::Pose desired_position, geometry_msgs::Twist *cmd_vel)
     {
 
         // Convert the orientation from quaternion to Euler angles using tf2
@@ -335,49 +376,22 @@ public:
         ROS_WARN("Angular Velocity: %.4f\n", w);
 
         // Set the velocity commands
-        cmd_vel->twist.linear.x = u;
-        cmd_vel->twist.angular.z = w;
+        cmd_vel->linear.x = u;
+        cmd_vel->angular.z = w;
 
         // Uses tanh to limit the values of the velocities
-        cmd_vel->twist.linear.x = vmax*tanh(u);
-        cmd_vel->twist.angular.z = wmax*tanh(w);
+        cmd_vel->linear.x = vmax*tanh(u);
+        cmd_vel->angular.z = wmax*tanh(w);
 
 
         ROS_ERROR("\n\n\nControl Signals Saved...\n");
-        ROS_ERROR("Linear Velocity: %.4f\n", cmd_vel->twist.linear.x);
-        ROS_ERROR("Angular Velocity: %.4f\n", cmd_vel->twist.angular.z);
+        ROS_ERROR("Linear Velocity: %.4f\n", cmd_vel->linear.x);
+        ROS_ERROR("Angular Velocity: %.4f\n", cmd_vel->angular.z);
 
 
     }
 
-    void publishControlSignals(const ros::TimerEvent&)
-    {
-
-        ROS_INFO("\nControl Loop Timer Callback...\n");
-
-        // check if the desired position was received
-        if (!goal_)
-        {
-            ROS_INFO("\nDesired Position not received yet...\n");
-            return;
-        }
-
-        // calculate the velocity commands
-        this->calculateControlSignals(pose_.pose.pose, goal_.value().pose, &cmd_vel_);
-
-        ROS_INFO("\n\n====== SLAM_TOOLBOX Control Signals: ======\n");
-        ROS_INFO("Linear Velocity: %.4f\n", cmd_vel_.twist.linear.x);
-        ROS_INFO("Angular Velocity: %.4f\n", cmd_vel_.twist.angular.z);
-
-        cmd_vel_.header.stamp = ros::Time::now();
-        cmd_vel_.header.frame_id = "base_link";
-
-        // publish the velocity commands
-        cmd_vel_pub_.publish(cmd_vel_);
-
-        // add the message to an array of all messages
-        cmd_vel_list_.push_back(cmd_vel_);
-    }
+    
 
 
     void saveMessagesToFile()

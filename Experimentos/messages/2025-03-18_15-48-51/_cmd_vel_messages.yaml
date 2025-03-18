@@ -1,0 +1,10 @@
+# ===============================================
+
+# Messages Received and Published by the Differential Controller
+# File: diff_control/messages/2025-03-18_15-48-51//_cmd_vel_messages.yaml
+
+# ===============================================
+
+Message_name: slam_cmd_vel
+number_of_messages: 0
+messages: 

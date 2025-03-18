@@ -22,9 +22,9 @@
         <param name="cmd_vel_topic" value="$(arg cmd_vel_topic)" />
 
         <!-- Controller Parameters -->
-        <param name="a" value="0.5" />
-        <param name="Kx" value="0.8" />
-        <param name="Ky" value="0.8" />
+        <param name="a" value="0.15" />
+        <param name="Kx" value="1" />
+        <param name="Ky" value="1" />
         <param name="control_frequency" value="$(arg control_frequency)" />
     </node>
 
