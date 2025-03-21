@@ -140,7 +140,8 @@ include_directories(
 ## Declare a C++ executable
 ## With catkin_make all packages are built within a single CMake context
 ## The recommended prefix ensures that target names across packages don't collide
- add_executable(${PROJECT_NAME}_node src/diff_control_node.cpp)
+ add_executable(${PROJECT_NAME}_node_vrpn src/diff_control_node_vrpn.cpp)
+ add_executable(${PROJECT_NAME}_node_slam src/diff_control_node_slam.cpp)
 
 
 ## Rename C++ executable without prefix
@@ -151,11 +152,15 @@ include_directories(
 
 ## Add cmake target dependencies of the executable
 ## same as for the library above
- add_dependencies(${PROJECT_NAME}_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+ add_dependencies(${PROJECT_NAME}_node_vrpn ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+ add_dependencies(${PROJECT_NAME}_node_slam ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 
 ## Specify libraries to link a library or executable target against
-target_link_libraries(${PROJECT_NAME}_node
+target_link_libraries(${PROJECT_NAME}_node_vrpn
+  ${catkin_LIBRARIES}
+)
+target_link_libraries(${PROJECT_NAME}_node_slam
   ${catkin_LIBRARIES}
 )
 

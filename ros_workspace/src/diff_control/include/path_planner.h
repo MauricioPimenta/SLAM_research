@@ -305,8 +305,8 @@ public:
     void loadLemniscataParameters()
     {
         // Retrieve simple parameters
-        priv_nh_.param<double>("R", Rx_, 2.0);
-        priv_nh_.param<double>("R", Ry_, 2.0);
+        priv_nh_.param<double>("Rx", Rx_, 2.0);
+        priv_nh_.param<double>("Ry", Ry_, 2.0);
         priv_nh_.param<double>("w", w_, 2*M_PI/40);
         priv_nh_.param<double>("tempo_experimento", time_of_experiment_, 60.0 /* seconds */);
 

@@ -9,7 +9,7 @@
     <arg name="path_resolution" default="" />  <!-- Resolution of the path -->
     <arg name="desired_vel" default="0.2" />        <!-- Desired velocity of the robot on each point -->
     <arg name="path_type" default="LINEAR"/>
-    <arg name="Rx" default="1.0" />
+    <arg name="Rx" default="1.5" />
     <arg name="Ry" default="1.0" />
     <arg name="W" default="0.20" />
     <arg name="tempo_experimento" default="120.0" />

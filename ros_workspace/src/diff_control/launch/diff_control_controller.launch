@@ -1,19 +1,19 @@
 <?xml version="1.0"?>
 <launch>
     <!-- Robot namespace to control -->
-    <arg name="robot" default="" />
+    <arg name="robot" default="L1" />
 
     <!-- Controller Parameters Arguments -->
     <arg name="control_frequency" default="30.0" />
 
     <!-- Topic names -->
-    <arg name="cmd_vel_topic" default="$(arg robot)/cmd_vel" />
+    <arg name="cmd_vel_topic" default="$(arg robot)/cmd_vel2" />
     <arg name="goal_topic" default="$(arg robot)/goal" />
-    <arg name="vrpn_cmd_vel_topic" default="$(arg robot)/vrpn_cmd_vel" />
+    <arg name="vrpn_cmd_vel_topic" default="$(arg robot)/cmd_vel" />
     <arg name="slam_cmd_vel_topic" default="$(arg robot)/slam_cmd_vel" />
 
 
-    <!-- Run diff_control Node with gdb -->
+    <!-- Run diff_control Node with VRPN -->
     <node pkg="diff_control" type="diff_control_node" name="diff_controller" output="screen">
         <param name="vrpn_topic" value="vrpn_client_node/$(arg robot)/pose" />
         <param name="pose_topic" value="slam_toolbox/pose" />
@@ -33,6 +33,8 @@
         <param name="Ky" value="0.8" />
         <param name="control_frequency" value="$(arg control_frequency)" />
     </node>
+
+    <!-- Run another diff_control Node with-->
 
 
 </launch>

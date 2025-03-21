@@ -53,7 +53,7 @@
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h> // to convert between tf2 and geometry_msgs
 
 
-class DiffController
+class DiffControl
 {
     /*
      * Private Atributes and Properties
@@ -63,20 +63,13 @@ private:
     /*
      * Node Parameters
      */
-
-    std::string vrpn_topic_;        // topic name for the vrpn twist messages
+    
     std::string pose_topic_;        // topic name for the pose messages from the slam_toolbox
 
     std::string cmd_vel_topic_;     // topic name for the velocity commands
-    std::string vrpn_cmd_vel_topic_;    // topic name for the velocity commands for the vrpn
-    std::string slam_cmd_vel_topic_;    // topic name for the velocity commands for the slam_toolbox
-
+    
     std::string goal_topic_;        // topic name for the desired position
-    std::string gazebo_topic_;      // topic name for the gazebo model states
-
-    bool use_turtle_sim_;           // flag to use the turtle simulator
-    std::string turtle_topic_;      // topic name for the turtle pose messages
-
+    
     /*
      * Controller Parameters
      */
@@ -106,66 +99,35 @@ private:
      */
     ros::NodeHandle nh_;        // public node handler
     ros::NodeHandle priv_nh_;   // private node handler
-    ros::Subscriber vrpn_sub_;  // subscriber to the vrpn twist topic
-    ros::Subscriber pose_sub_;  // subscriber to the pose topic from the slam_toolbox
+
+    ros::Subscriber pose_sub_;  // subscriber to the pose topic from the vrpn
     ros::Subscriber goal_sub_;  // subscriber to the goal topic
-    ros::Subscriber gazebo_sub_;    // subscriber to the gazebo model states
 
     ros::Publisher cmd_vel_pub_;    // publisher for the velocity commands
+    ros::Publisher cmd_vel_stamp_pub_;    // publisher for the velocity commands with timestamp
 
-    ros::Publisher vrpn_cmd_vel_pub_;   // publisher for the velocity commands for the vrpn
-    ros::Publisher slam_cmd_vel_pub_;   // publisher for the velocity commands for the slam_toolbox
-
-    ros::Subscriber turtle_sub_;        // subscriber to the turtle pose topic
-
-    ros::Timer slam_control_loop_timer_;  // timer for the control loop for the slam_toolbox cmd_vel
-    ros::Timer vrpn_control_loop_timer_;  // timer for the control loop that publishes the vrpn_cmd_vel
     ros::Timer control_loop_timer_;       // timer for the control loop that publish in cmd_vel
 
     /*
      * ROS Messages
      */
-    geometry_msgs::PoseStamped vrpn_twist_;     // vrpn twist message
-    geometry_msgs::TwistStamped vrpn_cmd_vel_;         // vrpn velocity command
 
-    geometry_msgs::PoseWithCovarianceStamped slam_pose_;    // pose message from the slam_toolbox
-    geometry_msgs::TwistStamped slam_cmd_vel_;                     // slam_toolbox velocity command
-
+    geometry_msgs::PoseStamped pose_;    // pose message 
     geometry_msgs::TwistStamped cmd_vel_;    // message use for the velocity command published in cmd_vel
     std::optional<geometry_msgs::PoseStamped> goal_;    // goal message type - this is optional because the goal may not be received
-
-    turtlesim::Pose turtle_pose_;   // turtle pose message
-
-    // Gazebo Messages
-    gazebo_msgs::ModelStates gazebo_Models_msg_;    // gazebo ModelStates message - to get the positions from the models inside the gazebo
-    geometry_msgs::Pose limo_gazebo_pose_;          // Pose message to save the robot position from gazebo
 
 
     /*
      * Arrays and Lists
      */
-    std::vector<geometry_msgs::PoseStamped> vrpn_twist_list_;       // list to record all messages received from the vrpn topic
-    std::vector<geometry_msgs::TwistStamped> vrpn_cmd_vel_list_;           // list to record all velocity commands generated using the vrpn poses to calculate the control
-
-    std::vector<geometry_msgs::PoseWithCovarianceStamped> slam_pose_list_;  // list to record all messages received from the slam_toolbox topic
-    std::vector<geometry_msgs::TwistStamped> slam_cmd_vel_list_;                   // list to record all velocity commands generated using the slam_toolbox poses to calculate the control
-
+    std::vector<geometry_msgs::PoseStamped> pose_list_;  // list to record all messages received from the slam_toolbox topic
     std::vector<geometry_msgs::TwistStamped> cmd_vel_list_;        // list to record all velocity commands published in the cmd_vel topic
     std::vector<geometry_msgs::PoseStamped> goal_list_;     // list to record all goal messages received
-
-    std::vector<turtlesim::Pose> turtle_pose_list_;         // list to record all turtle pose messages received
-
-    std::vector<geometry_msgs::Pose> limo_gazebo_poses_list_;   // list to record all robot positions received from gazebo
 
     /*
      * Private Methods
      */
     // nothing here
-
-    /*
-     * Synchronization
-     */
-    std::mutex mutex_; // Mutex for thread safety
 
 public:
     /*
@@ -177,17 +139,13 @@ public:
      */
 
     // Constructor
-    DiffController() : nh_(""), priv_nh_("~")
+    DiffControl(std::string ns = "") : nh_(ns), priv_nh_("~")
     {
         // Get the Parameters from the launch file and set default values
-        priv_nh_.param<std::string>("vrpn_topic", vrpn_topic_, "vrpn_client_node/L1/pose");
         priv_nh_.param<std::string>("pose_topic", pose_topic_, "slam_toolbox/pose");
         priv_nh_.param<std::string>("cmd_vel_topic", cmd_vel_topic_, "cmd_vel");
-        priv_nh_.param<std::string>("vrpn_cmd_vel_topic", vrpn_cmd_vel_topic_, "vrpn_cmd_vel");
-        priv_nh_.param<std::string>("slam_cmd_vel_topic", slam_cmd_vel_topic_, "slam_cmd_vel");
         priv_nh_.param<std::string>("goal_topic", goal_topic_, "goal");
-        // gazebo topic param
-        priv_nh_.param<std::string>("gazebo_topic", gazebo_topic_, "gazebo/model_states");
+
 
         priv_nh_.param<double>("a", a_, 0.1);
         priv_nh_.param<double>("Kx", Kx_, 1.0);
@@ -198,132 +156,51 @@ public:
         priv_nh_.param<double>("x_desired_velocity", x_desired_velocity_, 0.0);
         priv_nh_.param<double>("y_desired_velocity", y_desired_velocity_, 0.0);
 
-        priv_nh_.param<bool>("use_turtle_sim", use_turtle_sim_, false);
-        priv_nh_.param<std::string>("turtle_topic", turtle_topic_, "turtle1/pose");
-
         /*
          * Subscribers
          */
-        // subscribe to the vrpn twist topic
-        vrpn_sub_ = nh_.subscribe(vrpn_topic_, 1, &DiffController::vrpnCallback, this);
+
         // subscribe to the pose topic from the slam_toolbox
-        pose_sub_ = nh_.subscribe(pose_topic_, 1, &DiffController::slam_poseCallback, this);
+        pose_sub_ = nh_.subscribe(pose_topic_, 1, &DiffControl::poseCallback, this);
+        // pose_sub_2_ = nh_.subscribe(pose_topic_, 1, &DiffControl::vrpn_poseCallback, this);
         // subscribe to the goal topic
-        goal_sub_ = nh_.subscribe(goal_topic_, 1, &DiffController::goalCallback, this);
-
-        gazebo_sub_ = nh_.subscribe(gazebo_topic_, 1, &DiffController::gazeboCallback, this);
-
-        if (use_turtle_sim_)
-        {
-            // create subscriber to turtlesim pose topic
-            turtle_sub_ = nh_.subscribe(turtle_topic_, 1, &DiffController::turtleCallback, this);
-        }
+        goal_sub_ = nh_.subscribe(goal_topic_, 1, &DiffControl::goalCallback, this);
 
         /*
         * Publishers
         */
         cmd_vel_pub_ = nh_.advertise<geometry_msgs::Twist>(cmd_vel_topic_, 1);
-        vrpn_cmd_vel_pub_ = nh_.advertise<geometry_msgs::Twist>(vrpn_cmd_vel_topic_, 1);
-        slam_cmd_vel_pub_ = nh_.advertise<geometry_msgs::Twist>(slam_cmd_vel_topic_, 1);
+        cmd_vel_stamp_pub_ = nh_.advertise<geometry_msgs::TwistStamped>(cmd_vel_topic_ + "_stamped", 1);
 
         // Start the timer that call the control loop
         // the callback in this timer should publish the control signal (cmd_vel) for vrpn and slam_toolbox
         ros::Duration control_interval = ros::Duration(1.0 / control_frequency_);
-        vrpn_control_loop_timer_ = nh_.createTimer(ros::Duration(control_interval), &DiffController::vrpn_controlLoop, this);
-        slam_control_loop_timer_ = nh_.createTimer(ros::Duration(control_interval), &DiffController::slam_controlLoop, this);
-        control_loop_timer_ = nh_.createTimer(ros::Duration(control_interval), &DiffController::publishControlSignals, this);
+        control_loop_timer_ = nh_.createTimer(control_interval, &DiffControl::publishControlSignals, this);
     }
 
-
-    /****************************************************************************************
-     * gazebo ModelStates Message Callback
-     * @param msg: gazebo ModelStates message
-     * 
-     * This function is called whenever a new gazebo ModelStates message is received.
-     * Gets information of the robot position from the gazebo.
-     * Used to simulate the robot behaviour using the gazebo.
-     */
-    void gazeboCallback(const gazebo_msgs::ModelStates::ConstPtr& msg)
+    // Destructor
+    ~DiffControl()
     {
-        ROS_DEBUG("\nGetting Gazebo ModelStates Message from %s...", gazebo_topic_.c_str());
+        std::cout << "\n\n\nShutting down the Differential Controller Node...\n\n\n" << std::endl;
 
-        // save the message
-        gazebo_Models_msg_ = *msg;
+        std::cout << "Stopping Robot...\n\n" << std::endl;
+        // send a message to stop the robot
+        cmd_vel_.header.stamp = ros::Time::now();
+        cmd_vel_.header.frame_id = "base_link";
+        cmd_vel_.twist.linear.x = 0;   // set the linear velocity to zero
+        cmd_vel_.twist.linear.y = 0;   // set the linear velocity to zero
+        cmd_vel_.twist.linear.z = 0;   // set the linear velocity to zero
+        cmd_vel_.twist.angular.x = 0;  // set the angular velocity to zero
+        cmd_vel_.twist.angular.y = 0;  // set the angular velocity to zero
+        cmd_vel_.twist.angular.z = 0;  // set the angular velocity to zero
+        cmd_vel_pub_.publish(cmd_vel_);
 
-        limo_gazebo_pose_ = gazebo_Models_msg_.pose[2];
+        // save a file with all messages received and published and their timestamps
+        this->saveMessagesToFile();
 
-        // add the message to an array of all messages
-        // gazebo_Models_poses_list_.push_back(gazebo_Models_poses_);
-
-        // check if the desired position was received
-        if (!goal_)
-        {
-            ROS_INFO("\nDesired Position not received yet...\n");
-            return;
-        }
-
-        // calculate the velocity commands
-        this->calculateControlSignals(limo_gazebo_pose_, goal_.value().pose, &cmd_vel_);
-
-        ROS_INFO("\n\n****** Gazebo Control Signals: ******\n");
-        ROS_INFO("Linear Velocity: %.4f\n", cmd_vel_.twist.linear.x);
-        ROS_INFO("Angular Velocity: %.4f\n", cmd_vel_.twist.angular.z);
-    }
-
-
-    /****************************************************************************
-    ** turtlesim Pose Message Callback *
-    *  @param msg: turtlesim::Pose message
-    *
-    *  This function is called whenever a new turtlesim::Pose message is received.
-    *  Gets information of the robot position from the turtlesim.
-    *  Used to simulate the robot behaviour using the turtlesim.
-    */
-    void turtleCallback(const turtlesim::Pose::ConstPtr& msg)
-    {
-        ROS_DEBUG("\nGetting Turtle Pose Message from %s...", turtle_topic_.c_str());
-
-        // save the message
-        turtle_pose_.x = msg->x;
-        turtle_pose_.y = msg->y;
-        turtle_pose_.theta = msg->theta;
-        turtle_pose_.linear_velocity = msg->linear_velocity;
-        turtle_pose_.angular_velocity = msg->angular_velocity;
-
-        // add the message to an array of all messages
-        turtle_pose_list_.push_back(turtle_pose_);
-    }
-
-    /****************************************************************************
-    ** vrpn Twist Message Callback *
-    *  @param msg: vrpn twist message
-    *
-    *  This function is called whenever a new vrpn twist message is received.
-    *  Gets information of the robot position from the optitrack system.
-    *  Used as reference to compare with the results from the slam_toolbox.
-    */
-    void vrpnCallback(const geometry_msgs::PoseStamped::ConstPtr& msg)
-    {
-        ROS_DEBUG("\nGetting Twist Message from %s...", vrpn_topic_.c_str());
-
-        // save the message
-        vrpn_twist_.header.seq = msg->header.seq;
-        vrpn_twist_.header.stamp = msg->header.stamp;
-        vrpn_twist_.header.frame_id = msg->header.frame_id;
-
-        vrpn_twist_.pose.position.x = msg->pose.position.x;
-        vrpn_twist_.pose.position.y = msg->pose.position.y;
-        vrpn_twist_.pose.position.z = msg->pose.position.z;
-
-        vrpn_twist_.pose.orientation.x = msg->pose.orientation.x;
-        vrpn_twist_.pose.orientation.y = msg->pose.orientation.y;
-        vrpn_twist_.pose.orientation.z = msg->pose.orientation.z;
-        vrpn_twist_.pose.orientation.w = msg->pose.orientation.w;
-
-        // add the message to an array of all messages
-        vrpn_twist_list_.push_back(vrpn_twist_);
-
-        
+        // shutdown the nodehandlers
+        // nh_.shutdown();
+        // priv_nh_.shutdown();
     }
 
     /****************************************************************************************
@@ -334,28 +211,26 @@ public:
     *?  Gets information of the robot position from the slam_toolbox.
     *?  Used to calculate the velocity commands to move the robot to the desired position.
     */
-    void slam_poseCallback(const geometry_msgs::PoseWithCovarianceStamped::ConstPtr& msg)
+    void poseCallback(const geometry_msgs::PoseStamped::ConstPtr& msg)
     {
         ROS_DEBUG("\nGetting Pose Message from %s...", pose_topic_.c_str());
 
         // save the message
-        slam_pose_.header.seq = msg->header.seq;
-        slam_pose_.header.stamp = msg->header.stamp;
-        slam_pose_.header.frame_id = msg->header.frame_id;
+        pose_.header.seq = msg->header.seq;
+        pose_.header.stamp = msg->header.stamp;
+        pose_.header.frame_id = msg->header.frame_id;
 
-        slam_pose_.pose.pose.position.x = msg->pose.pose.position.x;
-        slam_pose_.pose.pose.position.y = msg->pose.pose.position.y;
-        slam_pose_.pose.pose.position.z = msg->pose.pose.position.z;
+        pose_.pose.position.x = msg->pose.position.x;
+        pose_.pose.position.y = msg->pose.position.y;
+        pose_.pose.position.z = msg->pose.position.z;
 
-        slam_pose_.pose.pose.orientation.x = msg->pose.pose.orientation.x;
-        slam_pose_.pose.pose.orientation.y = msg->pose.pose.orientation.y;
-        slam_pose_.pose.pose.orientation.z = msg->pose.pose.orientation.z;
-        slam_pose_.pose.pose.orientation.w = msg->pose.pose.orientation.w;
-        slam_pose_.pose.covariance = msg->pose.covariance;
+        pose_.pose.orientation.x = msg->pose.orientation.x;
+        pose_.pose.orientation.y = msg->pose.orientation.y;
+        pose_.pose.orientation.z = msg->pose.orientation.z;
+        pose_.pose.orientation.w = msg->pose.orientation.w;
 
         // add the message to an array of all messages
-        slam_pose_list_.push_back(slam_pose_);
-
+        pose_list_.push_back(pose_);
 
     }
 
@@ -372,17 +247,45 @@ public:
 
         // save the message
         goal_ = *msg;
-        // goal_.position.x = msg->position.x;
-        // goal_.position.y = msg->position.y;
-        // goal_.position.z = msg->position.z;
-        // goal_.orientation.x = msg->orientation.x;
-        // goal_.orientation.y = msg->orientation.y;
-        // goal_.orientation.z = msg->orientation.z;
-        // goal_.orientation.w = msg->orientation.w;
 
         // add the message to an array of all messages
         goal_list_.push_back(goal_.value());
 
+    }
+
+    void publishControlSignals(const ros::TimerEvent&)
+    {
+
+        ROS_INFO("\nControl Loop Timer Callback...\n");
+
+        // check if the desired position was received
+        if (!goal_)
+        {
+            ROS_INFO("\nDesired Position not received yet...\n");
+            return;
+        }
+
+        // calculate the velocity commands
+        this->calculateControlSignals(pose_.pose, goal_.value().pose, &cmd_vel_.twist);
+
+        ROS_INFO("\n\n====== SLAM_TOOLBOX Control Signals: ======\n");
+        ROS_INFO("Linear Velocity: %.4f\n", cmd_vel_.twist.linear.x);
+        ROS_INFO("Angular Velocity: %.4f\n", cmd_vel_.twist.angular.z);
+
+        // set the header of the message
+        static int seq = 0;
+        cmd_vel_.header.seq = seq;
+        cmd_vel_.header.stamp = ros::Time::now();
+        cmd_vel_.header.frame_id = "base_link";
+
+        // add the message to an array of all messages
+        cmd_vel_list_.push_back(cmd_vel_);
+
+        // publish the velocity commands
+        cmd_vel_pub_.publish(cmd_vel_.twist);
+        cmd_vel_stamp_pub_.publish(cmd_vel_);
+
+        seq++;
     }
 
     /**----------------------------------------------
@@ -393,7 +296,7 @@ public:
      * @param cmd_vel geometry_msgs::Twist::Ptr - cmd_vel message to save the control signals
      * @return void
      *---------------------------------------------**/
-    void calculateControlSignals(geometry_msgs::Pose last_position, geometry_msgs::Pose desired_position, geometry_msgs::TwistStamped *cmd_vel)
+    void calculateControlSignals(geometry_msgs::Pose last_position, geometry_msgs::Pose desired_position, geometry_msgs::Twist *cmd_vel)
     {
 
         // Convert the orientation from quaternion to Euler angles using tf2
@@ -471,109 +374,26 @@ public:
         ROS_WARN("Angular Velocity: %.4f\n", w);
 
         // Set the velocity commands
-        cmd_vel->twist.linear.x = u;
-        cmd_vel->twist.angular.z = w;
+        cmd_vel->linear.x = u;
+        cmd_vel->angular.z = w;
 
         // Uses tanh to limit the values of the velocities
-        cmd_vel->twist.linear.x = vmax*tanh(u);
-        cmd_vel->twist.angular.z = wmax*tanh(w);
+        cmd_vel->linear.x = vmax*tanh(u);
+        cmd_vel->angular.z = wmax*tanh(w);
 
 
         ROS_ERROR("\n\n\nControl Signals Saved...\n");
-        ROS_ERROR("Linear Velocity: %.4f\n", cmd_vel->twist.linear.x);
-        ROS_ERROR("Angular Velocity: %.4f\n", cmd_vel->twist.angular.z);
+        ROS_ERROR("Linear Velocity: %.4f\n", cmd_vel->linear.x);
+        ROS_ERROR("Angular Velocity: %.4f\n", cmd_vel->angular.z);
 
 
     }
 
-    void publishControlSignals(const ros::TimerEvent&)
+    
+
+
+    void saveMessagesToFile()
     {
-        ROS_INFO("\nControl Loop Timer Callback...\n");
-
-        // publish the velocity commands
-        cmd_vel_pub_.publish(cmd_vel_);
-
-        // add the message to an array of all messages
-        cmd_vel_list_.push_back(cmd_vel_);
-    }
-
-    void vrpn_controlLoop(const ros::TimerEvent&)
-    {
-        ROS_INFO("\n VRPN Control Loop Timer Callback...\n");
-
-        // check if the desired position was received
-        if (!goal_)
-        {
-            ROS_INFO("\nDesired Position not received yet...\n");
-            return;
-        }
-
-        // calculate the velocity commands
-        this->calculateControlSignals(vrpn_twist_.pose, goal_.value().pose, &vrpn_cmd_vel_);
-
-        ROS_INFO("\n\n****** VRPN Control Signals: ******\n");
-        ROS_INFO("Linear Velocity: %.4f\n", vrpn_cmd_vel_.twist.linear.x);
-        ROS_INFO("Angular Velocity: %.4f\n", vrpn_cmd_vel_.twist.angular.z);
-
-        // publish the velocity commands
-        vrpn_cmd_vel_pub_.publish(vrpn_cmd_vel_);
-
-        // add the message to an array of all messages
-        vrpn_cmd_vel_list_.push_back(vrpn_cmd_vel_);
-    }
-
-    void slam_controlLoop(const ros::TimerEvent&)
-    {
-
-        ROS_INFO("\nSLAM Control Loop Timer Callback...\n");
-
-        // check if the desired position was received
-        if (!goal_)
-        {
-            ROS_INFO("\nDesired Position not received yet...\n");
-            return;
-        }
-
-        // calculate the velocity commands
-        this->calculateControlSignals(slam_pose_.pose.pose, goal_.value().pose, &slam_cmd_vel_);
-
-        ROS_INFO("\n\n====== SLAM_TOOLBOX Control Signals: ======\n");
-        ROS_INFO("Linear Velocity: %.4f\n", slam_cmd_vel_.twist.linear.x);
-        ROS_INFO("Angular Velocity: %.4f\n", slam_cmd_vel_.twist.angular.z);
-
-        slam_cmd_vel_.header.stamp = ros::Time::now();
-        slam_cmd_vel_.header.frame_id = "base_link";
-
-        // publish the velocity commands
-        slam_cmd_vel_pub_.publish(slam_cmd_vel_);
-
-        // add the message to an array of all messages
-        slam_cmd_vel_list_.push_back(slam_cmd_vel_);
-    }
-
-    // Destructor
-    ~DiffController()
-    {
-        std::cout << "\n\n\nShutting down the Differential Controller Node...\n\n\n" << std::endl;
-
-        std::cout << "Stopping Robot...\n\n" << std::endl;
-        // send a message to stop the robot
-        cmd_vel_.header.stamp = ros::Time::now();
-        cmd_vel_.header.frame_id = "base_link";
-        cmd_vel_.twist.linear = geometry_msgs::Vector3();   // set the linear velocity to zero
-        cmd_vel_.twist.angular = geometry_msgs::Vector3();  // set the angular velocity to zero
-        cmd_vel_pub_.publish(cmd_vel_);
-
-        // save a file with all messages received and published and their timestamps
-        this->saveMessagesToFile();
-
-        // shutdown the nodehandlers
-        // nh_.shutdown();
-        // priv_nh_.shutdown();
-    }
-
-
-    void saveMessagesToFile(){
 
         std::cout << "\n\n\nSaving Messages to a File...\n\n\n" << std::endl;
 
@@ -602,7 +422,7 @@ public:
                      + t_sec;
 
         // file path and name
-        std::string file_path = "diff_control/messages/" + file_date + "/";
+        std::string file_path = "diff_control/messages/" + file_date + "/" + ros::this_node::getName();
         std::string file_name = "messages";
         std::string file_extension = ".yaml";
 
@@ -613,25 +433,19 @@ public:
          * Create one file for each message type
          */
 
-        // VRPN Messages
-        std::string vrpn_filename = file_path + "_vrpn_" + file_name + file_extension;
-        this->savePoseMessageToFile(vrpn_filename, "vrpn_poses", vrpn_twist_list_);
 
         // SLAM Messages
-        std::string slam_filename = file_path + "_slam_" + file_name + file_extension;
-        this->savePoseWithCovarianceStampedMessageToFile(slam_filename, "slam_poses", slam_pose_list_);
+        std::string pose_filename = file_path + "_pose_" + file_name + file_extension;
+        this->savePoseMessageToFile(pose_filename, "vrpn_poses", pose_list_);
 
         // Goal Messages
         std::string goal_filename = file_path + "_goal_" + file_name + file_extension;
         this->savePoseMessageToFile(goal_filename, "goal_poses", goal_list_);
 
-        // VRPN_CMD_VEL Messages
-        std::string vrpn_cmd_vel_filename = file_path + "_vrpn_cmd_vel_" + file_name + file_extension;
-        this->saveTwistMessageToFile(vrpn_cmd_vel_filename, "vrpn_cmd_vel", vrpn_cmd_vel_list_);
 
         // SLAM_CMD_VEL Messages
-        std::string slam_cmd_vel_filename = file_path + "_slam_cmd_vel_" + file_name + file_extension;
-        this->saveTwistMessageToFile(slam_cmd_vel_filename, "slam_cmd_vel", slam_cmd_vel_list_);
+        std::string cmd_vel_filename = file_path + "_cmd_vel_" + file_name + file_extension;
+        this->saveTwistMessageToFile(cmd_vel_filename, "slam_cmd_vel", cmd_vel_list_);
 
 
         std::cout << "\n\n\nMessages Saved to : " << file_path << "\n\n\n" << std::endl;

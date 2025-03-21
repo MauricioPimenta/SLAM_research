@@ -101,6 +101,7 @@ private:
     ros::NodeHandle priv_nh_;   // private node handler
 
     ros::Subscriber pose_sub_;  // subscriber to the pose topic from the slam_toolbox
+    ros::Subscriber pose_sub_2_;  // subscriber to the pose topic from the vrpn_client_ros
     ros::Subscriber goal_sub_;  // subscriber to the goal topic
 
     ros::Publisher cmd_vel_pub_;    // publisher for the velocity commands
@@ -162,6 +163,7 @@ public:
 
         // subscribe to the pose topic from the slam_toolbox
         pose_sub_ = nh_.subscribe(pose_topic_, 1, &DiffControl::slam_poseCallback, this);
+        // pose_sub_2_ = nh_.subscribe(pose_topic_, 1, &DiffControl::vrpn_poseCallback, this);
         // subscribe to the goal topic
         goal_sub_ = nh_.subscribe(goal_topic_, 1, &DiffControl::goalCallback, this);
 
@@ -201,8 +203,6 @@ public:
         // nh_.shutdown();
         // priv_nh_.shutdown();
     }
-
-
 
     /****************************************************************************************
     ** slam_toolbox Pose Message Callback
@@ -424,7 +424,7 @@ public:
                      + t_sec;
 
         // file path and name
-        std::string file_path = "diff_control/messages/" + file_date + "/" + this->nh_.getNamespace();
+        std::string file_path = "diff_control/messages/" + file_date + "/" + ros::this_node::getName();
         std::string file_name = "messages";
         std::string file_extension = ".yaml";
 
