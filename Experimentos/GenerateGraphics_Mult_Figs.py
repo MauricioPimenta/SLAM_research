@@ -16,11 +16,13 @@ def extract_positions(data, key='messages'):
     """Extract time and 3D position data from a YAML file."""
     times = []
     positions = []
+    orientations = []
     for msg in data.get(key, []):
-        if "Time" in msg and "Position" in msg:
+        if "Time" in msg and "Position" in msg and "Orientation" in msg:
             times.append(msg["Time"])
             positions.append(msg["Position"])
-    return np.array(times), np.array(positions)
+            orientations.append(msg["Orientation"])
+    return np.array(times), np.array(positions), np.array(orientations)
 
 def extract_velocities(data, key='messages'):
     """Extract linear and angular velocities from a YAML file."""
@@ -48,15 +50,20 @@ def compute_error(measured_times, measured_positions, goal_times, goal_positions
     print("Errors computed.")
     return error
 
+# Set xlim for all figures
+def set_xlim_all(figures, xlim):
+    for fig in figures:
+        for ax in fig.get_axes():
+            ax.set_xlim(xlim)
 
 
 def main():
-    
+
     # configura o tamanho da fonte utilizada na matplotlib
     plt.rcParams.update({'font.size': 12})
-    
+
     # Folder path
-    folder = 'messages/2025-03-21_07-50-02/'
+    folder = 'messages/2025-03-21_07-53-40/'
 
 
     controller = 'slam'
@@ -73,6 +80,8 @@ def main():
     watcher_pose_file = watch_files + '_pose_messages.yaml'
     watcher_cmd_file = watch_files + '_cmd_vel_messages.yaml'
 
+
+
     # Load YAML data from ctrl files
     ctrl_goal_data = load_yaml(ctrl_goal_file)
     ctrl_pose_data = load_yaml(ctrl_pose_file)
@@ -83,30 +92,75 @@ def main():
     watcher_pose_data = load_yaml(watcher_pose_file)
     watcher_cmd_data = load_yaml(watcher_cmd_file)
 
+
+
     # Extract positions and timestamps from the ctrl data
     print("Extracting position data ...")
-    ctrl_goal_times, ctrl_goal_positions = extract_positions(ctrl_goal_data)
-    ctrl_pose_times, ctrl_pose_positions = extract_positions(ctrl_pose_data)
+    ctrl_goal_times_abs, ctrl_goal_positions, ctrl_goal_orientations = extract_positions(ctrl_goal_data)
+    ctrl_pose_times_abs, ctrl_pose_positions, ctrl_pose_orientations = extract_positions(ctrl_pose_data)
 
     # Extract velocities from the ctrl data (from cmd_vel messages)
     print("Extracting velocity data ...")
-    ctrl_cmd_times, ctrl_cmd_linear, ctrl_cmd_angular = extract_velocities(ctrl_cmd_data)
+    ctrl_cmd_times_abs, ctrl_cmd_linear, ctrl_cmd_angular = extract_velocities(ctrl_cmd_data)
 
     # Extract positions and timestamps from the watcher data
     print("Extracting position data ...")
-    watcher_goal_times, watcher_goal_positions = extract_positions(watcher_goal_data)
-    watcher_pose_times, watcher_pose_positions = extract_positions(watcher_pose_data)
+    watcher_goal_times_abs, watcher_goal_positions, watcher_goal_orientations = extract_positions(watcher_goal_data)
+    watcher_pose_times_abs, watcher_pose_positions, watcher_pose_orientations = extract_positions(watcher_pose_data)
 
     # Extract velocities from the watcher data (from cmd_vel messages)
     print("Extracting velocity data ...")
-    watcher_cmd_times, watcher_cmd_linear, watcher_cmd_angular = extract_velocities(watcher_cmd_data)
+    watcher_cmd_times_abs, watcher_cmd_linear, watcher_cmd_angular = extract_velocities(watcher_cmd_data)
 
-    # if controller is the vrpn, we should subtract the initial position from all the positions of the controller
-    if controller == 'vrpn':
-        ctrl_pose_positions = ctrl_pose_positions - ctrl_pose_positions[0]
-    if watcher == 'vrpn':
-        watcher_pose_positions = watcher_pose_positions - watcher_pose_positions[0]
-        ctrl_pose_positions = ctrl_pose_positions - ctrl_pose_positions[0]
+
+
+
+    # Turn the times into relative times
+    watcher_goal_times = watcher_goal_times_abs - watcher_pose_times_abs[0]
+    watcher_pose_times = watcher_pose_times_abs - watcher_pose_times_abs[0]
+    watcher_cmd_times = watcher_cmd_times_abs - watcher_pose_times_abs[0]
+
+    ctrl_goal_times = ctrl_goal_times_abs - watcher_pose_times_abs[0]
+    ctrl_cmd_times = ctrl_cmd_times_abs - watcher_pose_times_abs[0]
+    ctrl_pose_times = ctrl_pose_times_abs - watcher_pose_times_abs[0]
+
+
+    print("watcher time 0: " + str(watcher_pose_times[0]))
+    print("watcher time last: " + str(watcher_pose_times[-1]))
+    print("ctrl time 0: " + str(ctrl_pose_times[0]))
+    print("ctrl time last: " + str(ctrl_pose_times[-1]))
+
+    # put the watcher, controller and goal in the same reference frame (vrpn)
+    # if controller == "vrpn":
+    #     watcher_pose_positions = watcher_pose_positions - watcher_pose_positions[0]
+    #     watcher_pose_positions = watcher_pose_positions + ctrl_pose_positions[0]
+        
+    #     goal_first = ctrl_goal_positions[0]
+    #     ctrl_goal_positions = ctrl_goal_positions - goal_first
+    #     ctrl_goal_positions = ctrl_goal_positions + ctrl_pose_positions[0]
+    #     ctrl_goal_positions = ctrl_goal_positions + goal_first
+        
+    #     goal_first = watcher_goal_positions[0]
+    #     watcher_goal_positions = watcher_goal_positions - goal_first
+    #     watcher_goal_positions = watcher_goal_positions + ctrl_pose_positions[0]
+    #     watcher_goal_positions = watcher_goal_positions + goal_first
+    # if watcher == "vrpn":
+    #     ctrl_pose_positions = ctrl_pose_positions - ctrl_pose_positions[0]
+    #     ctrl_pose_positions = ctrl_pose_positions + watcher_pose_positions[0]
+        
+    #     goal_first = ctrl_goal_positions[0]
+    #     ctrl_goal_positions = ctrl_goal_positions - goal_first
+    #     ctrl_goal_positions = ctrl_goal_positions + watcher_pose_positions[0]
+    #     ctrl_goal_positions = ctrl_goal_positions + goal_first
+        
+    #     goal_first = watcher_goal_positions[0]
+    #     watcher_goal_positions = watcher_goal_positions - goal_first
+    #     watcher_goal_positions = watcher_goal_positions + watcher_pose_positions[0]
+    #     watcher_goal_positions = watcher_goal_positions + goal_first
+        
+    # ctrl_pose_positions = ctrl_pose_positions - ctrl_pose_positions[0]
+    # ctrl_pose_positions = ctrl_pose_positions + watcher_pose_positions[0]
+    # watcher_pose_positions = watcher_pose_positions + (0.25, 0, 0)
 
 
     # Compute position errors using the goal as reference.
@@ -117,16 +171,31 @@ def main():
 
 
 
+    # Define the xlim range
+    xmin = min(ctrl_goal_times[0], ctrl_pose_times[0], watcher_pose_times[0], 0)
+    if xmin < 0:
+        xmin = 0
+    xmax = max(ctrl_goal_times[-1], ctrl_pose_times[-1], watcher_pose_times[-1])
+    xlim_range = (xmin, xmax)
+    # xlim_range = (1742552750, 1742552865)
+
+
     print("Preparing plots ...")
 
+    # List of all figures that X is the time axis
+    all_figures = []
+
+    figsize = (10, 10)
+    plt.rcParams['font.size'] = 14
+
     # ----- Figure 1: Position Plots -----
-    fig1, axs1 = plt.subplots(3, 1, figsize=(10, 15))
+    fig1, axs1 = plt.subplots(3, 1, figsize=figsize)
 
     # Goal positions
     axs1[0].plot(ctrl_goal_times, ctrl_goal_positions[:, 0], label='X')
     axs1[0].plot(ctrl_goal_times, ctrl_goal_positions[:, 1], label='Y')
     axs1[0].set_title("Goal Positions vs Time")
-    axs1[0].set_xlabel("Time")
+    axs1[0].set_xlabel("Time (s)")
     axs1[0].set_ylabel("Position")
     axs1[0].legend()
     axs1[0].grid(True)
@@ -135,7 +204,7 @@ def main():
     axs1[1].plot(ctrl_pose_times, ctrl_pose_positions[:, 0], label='X')
     axs1[1].plot(ctrl_pose_times, ctrl_pose_positions[:, 1], label='Y')
     axs1[1].set_title(controller + " Positions vs Time")
-    axs1[1].set_xlabel("Time")
+    axs1[1].set_xlabel("Time (s)")
     axs1[1].set_ylabel("Position")
     axs1[1].legend()
     axs1[1].grid(True)
@@ -144,21 +213,23 @@ def main():
     axs1[2].plot(watcher_pose_times, watcher_pose_positions[:, 0], label='X')
     axs1[2].plot(watcher_pose_times, watcher_pose_positions[:, 1], label='Y')
     axs1[2].set_title(watcher + " Positions vs Time")
-    axs1[2].set_xlabel("Time")
+    axs1[2].set_xlabel("Time (s)")
     axs1[2].set_ylabel("Position")
     axs1[2].legend()
     axs1[2].grid(True)
 
     fig1.tight_layout()
+    
+    all_figures.append(fig1)
 
     # ----- Figure 2: Velocity Plots -----
-    fig2, axs2 = plt.subplots(2, 1, figsize=(10, 10))
+    fig2, axs2 = plt.subplots(2, 1, figsize=figsize)
 
     # SLAM command velocities
     axs2[0].plot(ctrl_cmd_times, ctrl_cmd_linear, label='Linear')
     axs2[0].plot(ctrl_cmd_times, ctrl_cmd_angular, label='Angular')
     axs2[0].set_title(controller + " Command Velocities")
-    axs2[0].set_xlabel("Message Index")
+    axs2[0].set_xlabel("Time (s)")
     axs2[0].set_ylabel("Velocity")
     axs2[0].legend()
     axs2[0].grid(True)
@@ -167,22 +238,23 @@ def main():
     axs2[1].plot(watcher_cmd_times, watcher_cmd_linear, label='Linear')
     axs2[1].plot(watcher_cmd_times, watcher_cmd_angular, label='Angular')
     axs2[1].set_title(watcher + " Command Velocities")
-    axs2[1].set_xlabel("Message Index")
+    axs2[1].set_xlabel("Time (s)")
     axs2[1].set_ylabel("Velocity")
     axs2[1].legend()
     axs2[1].grid(True)
 
     fig2.tight_layout()
 
+    all_figures.append(fig2)
 
 
     # ----- Figure 3: Error Plots -----
-    fig3, axs3 = plt.subplots(3, 1, figsize=(10, 10))
+    fig3, axs3 = plt.subplots(3, 1, figsize=figsize)
 
     # SLAM vs Goal error
     axs3[0].plot(ctrl_pose_times, ctrl_pose_error, label= controller + ' vs Goal Error')
     axs3[0].set_title(controller + " vs Goal Position Error")
-    axs3[0].set_xlabel("Time")
+    axs3[0].set_xlabel("Time (s)")
     axs3[0].set_ylabel("Error")
     axs3[0].legend()
     axs3[0].grid(True)
@@ -190,7 +262,7 @@ def main():
     # VRPN vs Goal error
     axs3[1].plot(watcher_pose_times, watcher_pose_error, label=watcher + ' vs Goal Error')
     axs3[1].set_title(watcher + " vs Goal Position Error")
-    axs3[1].set_xlabel("Time")
+    axs3[1].set_xlabel("Time (s)")
     axs3[1].set_ylabel("Error")
     axs3[1].legend()
     axs3[1].grid(True)
@@ -200,45 +272,121 @@ def main():
     # SLAM vs VRPN error
     axs3[2].plot(ctrl_pose_times, ctrl_vs_watcher_error, label= controller + ' vs ' + watcher + ' Error')
     axs3[2].set_title(controller + " vs " + watcher + " Position Error")
-    axs3[2].set_xlabel("Time")
+    axs3[2].set_xlabel("Time (s)")
     axs3[2].set_ylabel("Error")
     axs3[2].legend()
     axs3[2].grid(True)
 
     fig3.tight_layout()
+    
+    all_figures.append(fig3)
 
+
+    # ----- Figure 4: Plots For Errors in X and Y -----
+    # Controller and watcher errors n X and Y compared to the goal
+    fig4, axs4 = plt.subplots(2, 1, figsize=figsize)
+    # Compute errors in X and Y separately
+    ctrl_goal_interp_x = np.interp(ctrl_pose_times, ctrl_goal_times, ctrl_goal_positions[:, 0])
+    ctrl_goal_interp_y = np.interp(ctrl_pose_times, ctrl_goal_times, ctrl_goal_positions[:, 1])
+    watcher_goal_interp_x = np.interp(watcher_pose_times, watcher_goal_times, watcher_goal_positions[:, 0])
+    watcher_goal_interp_y = np.interp(watcher_pose_times, watcher_goal_times, watcher_goal_positions[:, 1])
+
+    ctrl_error_x = ctrl_pose_positions[:, 0] - ctrl_goal_interp_x
+    ctrl_error_y = ctrl_pose_positions[:, 1] - ctrl_goal_interp_y
+    watcher_error_x = watcher_pose_positions[:, 0] - watcher_goal_interp_x
+    watcher_error_y = watcher_pose_positions[:, 1] - watcher_goal_interp_y
+
+    # Plot errors in X
+    axs4[0].plot(ctrl_pose_times, ctrl_error_x, label=controller + ' X Error')
+    axs4[0].plot(watcher_pose_times, watcher_error_x, label=watcher + ' X Error')
+    axs4[0].set_title("X Position Error vs Time")
+    axs4[0].set_xlabel("Time (s)")
+    axs4[0].set_ylabel("X Error")
+    axs4[0].legend()
+    axs4[0].grid(True)
+
+    # Plot errors in Y
+    axs4[1].plot(ctrl_pose_times, ctrl_error_y, label=controller + ' Y Error')
+    axs4[1].plot(watcher_pose_times, watcher_error_y, label=watcher + ' Y Error')
+    axs4[1].set_title("Y Position Error vs Time")
+    axs4[1].set_xlabel("Time (s)")
+    axs4[1].set_ylabel("Y Error")
+    axs4[1].legend()
+    axs4[1].grid(True)
+
+    fig4.tight_layout()
+    all_figures.append(fig4)
+    
+    
+    # ----- Figure 5: Plots For Errors in X and Y -----
+    # Plot the Errors in X and Y of the Controller compared to the watcher
+    fig5, axs5 = plt.subplots(2, 1, figsize=figsize)
+    
+    # Compute errors in X and Y separately
+    # if the controller is the vrpn, we use the ctrl_pose_times as the interpolation times
+    if controller == "vrpn":
+        interp_times = ctrl_pose_times
+    # if the watcher is the vrpn, we use the watcher_pose_times as the interpolation times
+    if watcher == "vrpn":
+        interp_times = watcher_pose_times
+
+    ctrl_pose_interp_x = np.interp(interp_times, ctrl_pose_times, ctrl_pose_positions[:, 0])
+    ctrl_pose_interp_y = np.interp(interp_times, ctrl_pose_times, ctrl_pose_positions[:, 1])
+    watcher_pose_interp_x = np.interp(interp_times, watcher_pose_times, watcher_pose_positions[:, 0])
+    watcher_pose_interp_y = np.interp(interp_times, watcher_pose_times, watcher_pose_positions[:, 1])
+
+    ctrl_v_watcher_error_x = ctrl_pose_interp_x - watcher_pose_interp_x
+    ctrl_v_watcher_error_y = ctrl_pose_interp_y - watcher_pose_interp_y
+
+    # Plot errors in X
+    axs5[0].plot(interp_times, ctrl_v_watcher_error_x, label=controller + " vs " + watcher + ' X Error')
+    axs5[0].set_title("X Position Error vs Time")
+    axs5[0].set_xlabel("Time (s)")
+    axs5[0].set_ylabel("X Error")
+    axs5[0].legend()
+    axs5[0].grid(True)
+
+    # Plot errors in Y
+    axs5[1].plot(interp_times, ctrl_v_watcher_error_y, label=controller + " vs " + watcher + ' Y Error')
+    axs5[1].set_title("Y Position Error vs Time")
+    axs5[1].set_xlabel("Time (s)")
+    axs5[1].set_ylabel("Y Error")
+    axs5[1].legend()
+    axs5[1].grid(True)
+
+    fig5.tight_layout()
+    all_figures.append(fig5)
+    
 
 
     print("Preparing comparison plots ...")
     # ----- Figure for Positions Comparison -----
     # Create a figure with three subplots: one for X, one for Y, and one for Z.
     coord_labels = ['X', 'Y']
-    fig_pos, axs_pos = plt.subplots(2, 1, figsize=(10, 15))
+    fig_pos, axs_pos = plt.subplots(2, 1, figsize=figsize)
+    
     for i in range(2):
         axs_pos[i].plot(ctrl_goal_times, ctrl_goal_positions[:, i], label='Goal')
         axs_pos[i].plot(ctrl_pose_times, ctrl_pose_positions[:, i], label=controller)
         axs_pos[i].plot(watcher_pose_times, watcher_pose_positions[:, i], label=watcher)
         axs_pos[i].set_title(f"{coord_labels[i]} Position vs Time")
-        axs_pos[i].set_xlabel("Time")
+        axs_pos[i].set_xlabel("Time (s)")
         axs_pos[i].set_ylabel(f"{coord_labels[i]} Position")
         axs_pos[i].legend()
         axs_pos[i].grid(True)
     fig_pos.tight_layout()
+    all_figures.append(fig_pos)
 
 
 
     # ----- Figure for Velocities Comparison -----
     # Create a figure with two subplots: one for linear velocities and one for angular velocities.
-    fig_vel, axs_vel = plt.subplots(2, 1, figsize=(10, 10))
-
-    # Use the message index as the x-axis.
-    index_ctrl = np.arange(len(ctrl_cmd_linear))
-    index_watcher = np.arange(len(watcher_cmd_linear))
+    fig_vel, axs_vel = plt.subplots(2, 1, figsize=figsize)
 
     axs_vel[0].plot(ctrl_cmd_times, ctrl_cmd_linear, label=controller + ' Linear')
     axs_vel[0].plot(watcher_cmd_times, watcher_cmd_linear, label=watcher + ' Linear')
     axs_vel[0].set_title("Linear Velocities Comparison")
-    axs_vel[0].set_xlabel("Message Index")
+    axs_vel[0].set_xlabel("Time (s)")
     axs_vel[0].set_ylabel("Linear Velocity")
     axs_vel[0].legend()
     axs_vel[0].grid(True)
@@ -246,32 +394,35 @@ def main():
     axs_vel[1].plot(ctrl_cmd_times, ctrl_cmd_angular, label=controller + ' Angular')
     axs_vel[1].plot(watcher_cmd_times, watcher_cmd_angular, label=watcher + ' Angular')
     axs_vel[1].set_title("Angular Velocities Comparison")
-    axs_vel[1].set_xlabel("Message Index")
+    axs_vel[1].set_xlabel("Times (s)")
     axs_vel[1].set_ylabel("Angular Velocity")
     axs_vel[1].legend()
     axs_vel[1].grid(True)
 
     fig_vel.tight_layout()
+    all_figures.append(fig_vel)
 
 
     # ----- Figure for showing the trajectories X vs Y -----
-    fig_traj, axs_traj = plt.subplots(1, 1, figsize=(10, 10))
-    axs_traj.plot(ctrl_goal_positions[:, 0], ctrl_goal_positions[:, 1], label=controller+'Goal')
-    axs_traj.plot(watcher_goal_positions[:, 0], watcher_goal_positions[:, 1], label=watcher+'Goal')
+    fig_traj, axs_traj = plt.subplots(1, 1, figsize=figsize)
+    axs_traj.plot(ctrl_goal_positions[:, 0], ctrl_goal_positions[:, 1], linestyle='dashed', label='Goal')
     axs_traj.plot(ctrl_pose_positions[:, 0], ctrl_pose_positions[:, 1], label=controller)
     axs_traj.plot(watcher_pose_positions[:, 0], watcher_pose_positions[:, 1], label=watcher)
     axs_traj.set_title("Trajectories X vs Y")
     axs_traj.set_xlabel("X Position")
     axs_traj.set_ylabel("Y Position")
     axs_traj.legend()
-    axs_traj.grid(True)
+    axs_traj.grid(True, 'both', 'both')
+    
     fig_traj.tight_layout()
 
-    # X vs Y
+    # Apply xlim to all figures
+    set_xlim_all(all_figures, xlim_range)
 
     # Display all figures (each will appear in its own window)
     plt.show()
-    
+
+
 
 if __name__ == "__main__":
     main()
