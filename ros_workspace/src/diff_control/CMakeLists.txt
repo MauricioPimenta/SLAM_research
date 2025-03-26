@@ -14,6 +14,7 @@ find_package(catkin REQUIRED
   std_msgs
   geometry_msgs
   gazebo_msgs
+  message_generation
 
   # tf2_ros to broadcast markers positions
   tf2_ros
@@ -53,12 +54,15 @@ find_package(catkin REQUIRED
 ##   * uncomment the generate_messages entry below
 ##   * add every package in MSG_DEP_SET to generate_messages(DEPENDENCIES ...)
 
-## Generate messages in the 'msg' folder
-# add_message_files(
-#   FILES
-#   Message1.msg
-#   Message2.msg
-# )
+# Generate messages in the 'msg' folder
+add_message_files(
+  FILES
+  PathPoint.msg
+  Path.msg
+  TrajectoryPoint.msg
+  TrajectoryPointStamped.msg
+  Trajectory.msg
+)
 
 ## Generate services in the 'srv' folder
 # add_service_files(
@@ -74,11 +78,12 @@ find_package(catkin REQUIRED
 #   Action2.action
 # )
 
-## Generate added messages and services with any dependencies listed here
-# generate_messages(
-#   DEPENDENCIES
-#   std_msgs  # Or other packages containing msgs
-# )
+# Generate added messages and services with any dependencies listed here
+generate_messages(
+  DEPENDENCIES
+  std_msgs  # Or other packages containing msgs
+  geometry_msgs
+)
 
 ################################################
 ## Declare ROS dynamic reconfigure parameters ##
@@ -112,7 +117,7 @@ find_package(catkin REQUIRED
 catkin_package(
   INCLUDE_DIRS include
 #  LIBRARIES diff_control
-  CATKIN_DEPENDS roscpp rospy std_msgs geometry_msgs tf2_ros tf
+  CATKIN_DEPENDS roscpp rospy std_msgs geometry_msgs message_runtime tf2_ros tf
 #  DEPENDS system_lib
 )
 

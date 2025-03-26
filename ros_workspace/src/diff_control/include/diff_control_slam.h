@@ -39,6 +39,8 @@
 #include <geometry_msgs/PoseStamped.h>
 #include <geometry_msgs/Pose.h>
 
+#include <diff_control/TrajectoryPointStamped.h>
+
 #include <gazebo_msgs/ModelStates.h>
 
 #include <turtlesim/Pose.h>
@@ -85,6 +87,7 @@ private:
     // Desired Velocities
     // For positioning control, these should be zero.
     // For velocity control, these should be the desired velocities of the trajectory
+    double desired_vel_;
     double x_desired_velocity_;
     double y_desired_velocity_;
 
@@ -115,7 +118,7 @@ private:
 
     geometry_msgs::PoseWithCovarianceStamped pose_;    // pose message 
     geometry_msgs::TwistStamped cmd_vel_;    // message use for the velocity command published in cmd_vel
-    std::optional<geometry_msgs::PoseStamped> goal_;    // goal message type - this is optional because the goal may not be received
+    std::optional<diff_control::TrajectoryPointStamped> goal_;    // goal message type - this is optional because the goal may not be received
 
 
     /*
@@ -123,7 +126,7 @@ private:
      */
     std::vector<geometry_msgs::PoseWithCovarianceStamped> pose_list_;  // list to record all messages received from the slam_toolbox topic
     std::vector<geometry_msgs::TwistStamped> cmd_vel_list_;        // list to record all velocity commands published in the cmd_vel topic
-    std::vector<geometry_msgs::PoseStamped> goal_list_;     // list to record all goal messages received
+    std::vector<diff_control::TrajectoryPointStamped> goal_list_;    // list to record all goal messages received
 
     /*
      * Private Methods
@@ -243,12 +246,15 @@ public:
      *? This function is called whenever a new goal message is received.
      *? Gets the desired position of the robot.
      */
-    void goalCallback(const geometry_msgs::PoseStamped::ConstPtr& msg)
+    void goalCallback(const diff_control::TrajectoryPointStamped::ConstPtr& msg)
     {
         ROS_DEBUG("\nGetting Goal Message from %s...", goal_topic_.c_str());
 
         // save the message
         goal_ = *msg;
+
+        // save the velocity of the goal
+        desired_vel_ = msg->TrajectoryPoint.velocity;
 
         // add the message to an array of all messages
         goal_list_.push_back(goal_.value());
@@ -268,7 +274,7 @@ public:
         }
 
         // calculate the velocity commands
-        this->calculateControlSignals(pose_.pose.pose, goal_.value().pose, &cmd_vel_.twist);
+        this->calculateControlSignals(pose_.pose.pose, goal_.value().TrajectoryPoint.pose, &cmd_vel_.twist);
 
         ROS_INFO("\n\n====== SLAM_TOOLBOX Control Signals: ======\n");
         ROS_INFO("Linear Velocity: %.4f\n", cmd_vel_.twist.linear.x);
@@ -360,6 +366,8 @@ public:
         // }
 
         // Velocidades desejadas - should be zero for positioning
+        x_desired_velocity_ = desired_vel_*cos(theta_d);
+        y_desired_velocity_ = desired_vel_*sin(theta_d);
         double Vxd = x_desired_velocity_;
         double Vyd = y_desired_velocity_;
 
@@ -442,7 +450,7 @@ public:
 
         // Goal Messages
         std::string goal_filename = file_path + "_goal_" + file_name + file_extension;
-        this->savePoseMessageToFile(goal_filename, "goal_poses", goal_list_);
+        this->saveTrajectoryPoseMessageToFile(goal_filename, "goal_poses", goal_list_);
 
 
         // SLAM_CMD_VEL Messages
@@ -481,6 +489,42 @@ public:
             file << "Time: " << message_list[i].header.stamp << ", ";
             file << "Position: [" << message_list[i].pose.position.x << ", " << message_list[i].pose.position.y << ", " << message_list[i].pose.position.z << "] , ";
             file << "Orientation: [" << message_list[i].pose.orientation.x << ", " << message_list[i].pose.orientation.y << ", " << message_list[i].pose.orientation.z << ", " << message_list[i].pose.orientation.w << "] ";
+            file << "}\n";
+        }
+
+        // close and save file
+        file.close();
+    }
+
+    void saveTrajectoryPoseMessageToFile(std::string filename, std::string message_name, std::vector<diff_control::TrajectoryPointStamped> message_list)
+    {
+        // Try to open file
+        std::ofstream file(filename);
+
+        if (!file.is_open())
+        {
+            std::cerr << "Error opening file: " << filename << std::endl;
+            return;
+        }
+
+        // Header
+        file << "# ===============================================\n\n";
+        file << "# Messages Received and Published by the Differential Controller\n";
+        file << "# File: " << filename << "\n\n";
+        file << "# ===============================================\n\n";
+
+        // save the vrpn messages
+        file << "Message_name: " << message_name << "\n";
+        file << "number_of_messages: " << message_list.size() << "\n";
+        file << "messages: \n";
+        for (int i = 0; i < message_list.size(); i++)
+        {
+            geometry_msgs::Pose pose = message_list[i].TrajectoryPoint.pose;
+
+            file << "    - {id: " << i << ", ";
+            file << "Time: " << message_list[i].header.stamp << ", ";
+            file << "Position: [" << pose.position.x << ", " << pose.position.y << ", " << pose.position.z << "] , ";
+            file << "Orientation: [" << pose.orientation.x << ", " << pose.orientation.y << ", " << pose.orientation.z << ", " << pose.orientation.w << "] ";
             file << "}\n";
         }
 

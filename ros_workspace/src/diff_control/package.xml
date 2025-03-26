@@ -47,6 +47,10 @@
 		<!--   <buildtool_depend>catkin</buildtool_depend> -->
 		<buildtool_depend>catkin</buildtool_depend>
 
+		<!-- To generate the messages defined in this project -->
+		<build_depend>message_generation</build_depend>
+  		<exec_depend>message_runtime</exec_depend>
+
 		<!-- Use build_depend for packages you need at compile time: -->
 		<!--   <build_depend>message_generation</build_depend> -->
 		<build_depend>roscpp</build_depend>

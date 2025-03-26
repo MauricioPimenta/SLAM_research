@@ -45,7 +45,18 @@
 #include <geometry_msgs/Pose.h>
 #include <geometry_msgs/PoseStamped.h>
 #include <nav_msgs/Path.h>
+#include <trajectory_msgs/JointTrajectoryPoint.h>
 
+// My own messages!! :D
+#include <diff_control/PathPoint.h>
+#include <diff_control/Path.h>
+#include <diff_control/TrajectoryPoint.h>
+#include <diff_control/TrajectoryPointStamped.h>
+#include <diff_control/Trajectory.h>
+
+#define X 0
+#define Y 1
+#define Z 2
 
 class PathPlanner
 {
@@ -58,6 +69,7 @@ class PathPlanner
 
     // Messages
     geometry_msgs::PoseStamped goal_msg_;
+    trajectory_msgs::JointTrajectoryPoint goal_point_msg_;
     nav_msgs::Path goal_path_msg_;
 
     // Publishers
@@ -195,9 +207,10 @@ public:
     void createPublishers()
     {
         // Create a publisher to publish the goal points
-        goal_pub_ = nh_.advertise<geometry_msgs::PoseStamped>(goal_topic_name_, 1, true);
+        goal_pub_ = nh_.advertise<diff_control::TrajectoryPointStamped>(goal_topic_name_, 1, true);
         std::string goal_path_topic = goal_topic_name_ + "_path";
         goal_path_pub_ = nh_.advertise<nav_msgs::Path>(goal_path_topic, 1, true);
+
         // Create a timer to publish the one point of the path as the goal each time it is called
         ros::Duration time_to_publish_goal = ros::Duration(1.0 / frequency_to_publish_goal_);
         goal_pub_timer_ = nh_.createTimer(time_to_publish_goal, &PathPlanner::publishGoal, this);
@@ -335,13 +348,13 @@ public:
             ROS_INFO("Publishing goal point %d in path %d", current_point, current_path);
 
             // Publish the goal point
-            geometry_msgs::PoseStamped goal_msg;
+            diff_control::TrajectoryPointStamped goal_msg;
             goal_msg.header.frame_id = frame_id_;
-            goal_msg.header.stamp = ros::Time::now();
-
-            goal_msg.pose = paths_[current_path].points[current_point].pose;
+            goal_msg.TrajectoryPoint.pose = paths_[current_path].points[current_point].pose;
+            goal_msg.TrajectoryPoint.velocity = paths_[current_path].points[current_point].desired_velocity;
 
             // Publish the goal
+            goal_msg.header.stamp = ros::Time::now();
             goal_pub_.publish(goal_msg);
 
             // Increment the current point
@@ -513,6 +526,9 @@ public:
             temp_point.pose.position.y = Ry*sin(2*w*t);
             temp_point.pose.position.z = 0.0;
 
+            double vel_x = -Rx*w*sin(w*t);
+            double vel_y = 2*Ry*w*cos(2*w*t);
+
             // Orientation of the point is the tangent of the path or trajectory
             // For lemniscata paths, the orientation is the angle of the tangent to the curve
             double theta = atan2(2*Ry*w*cos(2*w*t), -Rx*w*sin(w*t));
@@ -521,7 +537,9 @@ public:
             q.setRPY(0, 0, theta);
             temp_point.pose.orientation = tf2::toMsg(q);
 
-            temp_point.desired_velocity = desired_velocity_;
+            // The desired velocity is the magnitude of the velocity vector - sum of the vel_x and vel_y vectors
+            double vel = sqrt(pow(vel_x,2) + pow(vel_y,2));
+            temp_point.desired_velocity = vel;
 
             // Add the point to the path
             temp_path.points.push_back(temp_point);
