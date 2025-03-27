@@ -63,19 +63,32 @@ def main():
     plt.rcParams.update({'font.size': 12})
 
     # Folder path
-    folder = 'messages/2025-03-21_07-53-40/'
+    folder = 'messages/2025-03-27_16-12-38/'
 
+    # Enum containing the Exp numbers
+    Exp = 4
 
-    controller = 'slam'
-    watcher = 'vrpn'
+    if Exp == 1 or Exp == 2:
+        controller = 'OptiTrack'
+        watcher = 'SLAM Toolbox'
+    elif Exp == 3 or Exp == 4:
+        controller = 'SLAM Toolbox'
+        watcher = 'OptiTrack'
+
+    if controller == 'SLAM Toolbox':
+        controller_file = 'slam'
+        watcher_file = 'vrpn'
+    elif controller == 'OptiTrack':
+        controller_file = 'vrpn'
+        watcher_file = 'slam'
 
     # diff_controller_vrpn
-    ctrl_files = folder + 'diff_controller' + '_' + controller
+    ctrl_files = folder + 'diff_controller' + '_' + controller_file
     ctrl_goal_file = ctrl_files + '_goal_messages.yaml'
     ctrl_pose_file = ctrl_files + '_pose_messages.yaml'
     ctrl_cmd_file = ctrl_files + '_cmd_vel_messages.yaml'
 
-    watch_files = folder + 'watcher' + '_' + watcher
+    watch_files = folder + 'watcher' + '_' + watcher_file
     watcher_goal_file = watch_files + '_goal_messages.yaml'
     watcher_pose_file = watch_files + '_pose_messages.yaml'
     watcher_cmd_file = watch_files + '_cmd_vel_messages.yaml'
@@ -324,10 +337,10 @@ def main():
     
     # Compute errors in X and Y separately
     # if the controller is the vrpn, we use the ctrl_pose_times as the interpolation times
-    if controller == "vrpn":
+    if controller_file == "vrpn":
         interp_times = ctrl_pose_times
     # if the watcher is the vrpn, we use the watcher_pose_times as the interpolation times
-    if watcher == "vrpn":
+    if watcher_file == "vrpn":
         interp_times = watcher_pose_times
 
     ctrl_pose_interp_x = np.interp(interp_times, ctrl_pose_times, ctrl_pose_positions[:, 0])
