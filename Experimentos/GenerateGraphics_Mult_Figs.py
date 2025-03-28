@@ -144,32 +144,32 @@ def main():
     print("ctrl time last: " + str(ctrl_pose_times[-1]))
 
     # put the watcher, controller and goal in the same reference frame (vrpn)
-    # if controller == "vrpn":
-    #     watcher_pose_positions = watcher_pose_positions - watcher_pose_positions[0]
-    #     watcher_pose_positions = watcher_pose_positions + ctrl_pose_positions[0]
+    if controller_file == "vrpn":
+        watcher_pose_positions = watcher_pose_positions - watcher_pose_positions[0]
+        watcher_pose_positions = watcher_pose_positions + ctrl_pose_positions[0]
         
-    #     goal_first = ctrl_goal_positions[0]
-    #     ctrl_goal_positions = ctrl_goal_positions - goal_first
-    #     ctrl_goal_positions = ctrl_goal_positions + ctrl_pose_positions[0]
-    #     ctrl_goal_positions = ctrl_goal_positions + goal_first
+        goal_first = ctrl_goal_positions[0]
+        ctrl_goal_positions = ctrl_goal_positions - goal_first
+        ctrl_goal_positions = ctrl_goal_positions + ctrl_pose_positions[0]
+        ctrl_goal_positions = ctrl_goal_positions + goal_first
         
-    #     goal_first = watcher_goal_positions[0]
-    #     watcher_goal_positions = watcher_goal_positions - goal_first
-    #     watcher_goal_positions = watcher_goal_positions + ctrl_pose_positions[0]
-    #     watcher_goal_positions = watcher_goal_positions + goal_first
-    # if watcher == "vrpn":
-    #     ctrl_pose_positions = ctrl_pose_positions - ctrl_pose_positions[0]
-    #     ctrl_pose_positions = ctrl_pose_positions + watcher_pose_positions[0]
+        goal_first = watcher_goal_positions[0]
+        watcher_goal_positions = watcher_goal_positions - goal_first
+        watcher_goal_positions = watcher_goal_positions + ctrl_pose_positions[0]
+        watcher_goal_positions = watcher_goal_positions + goal_first
+    if watcher_file == "vrpn":
+        ctrl_pose_positions = ctrl_pose_positions - ctrl_pose_positions[0]
+        ctrl_pose_positions = ctrl_pose_positions + watcher_pose_positions[0]
         
-    #     goal_first = ctrl_goal_positions[0]
-    #     ctrl_goal_positions = ctrl_goal_positions - goal_first
-    #     ctrl_goal_positions = ctrl_goal_positions + watcher_pose_positions[0]
-    #     ctrl_goal_positions = ctrl_goal_positions + goal_first
+        goal_first = ctrl_goal_positions[0]
+        ctrl_goal_positions = ctrl_goal_positions - goal_first
+        ctrl_goal_positions = ctrl_goal_positions + watcher_pose_positions[0]
+        ctrl_goal_positions = ctrl_goal_positions + goal_first
         
-    #     goal_first = watcher_goal_positions[0]
-    #     watcher_goal_positions = watcher_goal_positions - goal_first
-    #     watcher_goal_positions = watcher_goal_positions + watcher_pose_positions[0]
-    #     watcher_goal_positions = watcher_goal_positions + goal_first
+        goal_first = watcher_goal_positions[0]
+        watcher_goal_positions = watcher_goal_positions - goal_first
+        watcher_goal_positions = watcher_goal_positions + watcher_pose_positions[0]
+        watcher_goal_positions = watcher_goal_positions + goal_first
         
     # ctrl_pose_positions = ctrl_pose_positions - ctrl_pose_positions[0]
     # ctrl_pose_positions = ctrl_pose_positions + watcher_pose_positions[0]
@@ -183,6 +183,9 @@ def main():
 
 
 
+    # ----- Figures Configurations ------ #
+
+    print("Preparing plots ...")
 
     # Define the xlim range
     xmin = min(ctrl_goal_times[0], ctrl_pose_times[0], watcher_pose_times[0], 0)
@@ -192,11 +195,16 @@ def main():
     xlim_range = (xmin, xmax)
     # xlim_range = (1742552750, 1742552865)
 
-
-    print("Preparing plots ...")
-
     # List of all figures that X is the time axis
     all_figures = []
+    
+    pos_label = "Posição (m)"
+    Time_Label = "Tempo (s)"
+    Vel_Label = "Velocidade (m/s)"
+    Lin_Vel_Label = "Velocidade Linear (m/s)"
+    Ang_Vel_Label = "Velocidade Angular (rad/s)"
+    error_Label = "Erro (m)"
+    
 
     figsize = (10, 10)
     plt.rcParams['font.size'] = 14
@@ -207,27 +215,27 @@ def main():
     # Goal positions
     axs1[0].plot(ctrl_goal_times, ctrl_goal_positions[:, 0], label='X')
     axs1[0].plot(ctrl_goal_times, ctrl_goal_positions[:, 1], label='Y')
-    axs1[0].set_title("Goal Positions vs Time")
-    axs1[0].set_xlabel("Time (s)")
-    axs1[0].set_ylabel("Position")
+    axs1[0].set_title("Posição Desejada x Tempo")
+    axs1[0].set_xlabel(Time_Label)
+    axs1[0].set_ylabel(pos_label)
     axs1[0].legend()
     axs1[0].grid(True)
 
     # controller positions
     axs1[1].plot(ctrl_pose_times, ctrl_pose_positions[:, 0], label='X')
     axs1[1].plot(ctrl_pose_times, ctrl_pose_positions[:, 1], label='Y')
-    axs1[1].set_title(controller + " Positions vs Time")
-    axs1[1].set_xlabel("Time (s)")
-    axs1[1].set_ylabel("Position")
+    axs1[1].set_title("Posição " + controller + " x Tempo")
+    axs1[1].set_xlabel(Time_Label)
+    axs1[1].set_ylabel(pos_label)
     axs1[1].legend()
     axs1[1].grid(True)
 
     # watcher positions
     axs1[2].plot(watcher_pose_times, watcher_pose_positions[:, 0], label='X')
     axs1[2].plot(watcher_pose_times, watcher_pose_positions[:, 1], label='Y')
-    axs1[2].set_title(watcher + " Positions vs Time")
-    axs1[2].set_xlabel("Time (s)")
-    axs1[2].set_ylabel("Position")
+    axs1[2].set_title("Posição " + watcher + " x Tempo")
+    axs1[2].set_xlabel(Time_Label)
+    axs1[2].set_ylabel(pos_label)
     axs1[2].legend()
     axs1[2].grid(True)
 
@@ -241,18 +249,18 @@ def main():
     # SLAM command velocities
     axs2[0].plot(ctrl_cmd_times, ctrl_cmd_linear, label='Linear')
     axs2[0].plot(ctrl_cmd_times, ctrl_cmd_angular, label='Angular')
-    axs2[0].set_title(controller + " Command Velocities")
-    axs2[0].set_xlabel("Time (s)")
-    axs2[0].set_ylabel("Velocity")
+    axs2[0].set_title("Comandos de Velocidade " + controller)
+    axs2[0].set_xlabel(Time_Label)
+    axs2[0].set_ylabel(Vel_Label)
     axs2[0].legend()
     axs2[0].grid(True)
 
     # VRPN command velocities
     axs2[1].plot(watcher_cmd_times, watcher_cmd_linear, label='Linear')
     axs2[1].plot(watcher_cmd_times, watcher_cmd_angular, label='Angular')
-    axs2[1].set_title(watcher + " Command Velocities")
-    axs2[1].set_xlabel("Time (s)")
-    axs2[1].set_ylabel("Velocity")
+    axs2[1].set_title("Comandos de Velocidade " + watcher)
+    axs2[1].set_xlabel(Time_Label)
+    axs2[1].set_ylabel(Vel_Label)
     axs2[1].legend()
     axs2[1].grid(True)
 
