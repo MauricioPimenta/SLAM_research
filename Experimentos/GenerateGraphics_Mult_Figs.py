@@ -59,14 +59,11 @@ def set_xlim_all(figures, xlim):
 
 def main():
 
-    # configura o tamanho da fonte utilizada na matplotlib
-    plt.rcParams.update({'font.size': 12})
-
     # Folder path
-    folder = 'messages/2025-03-27_16-12-38/'
+    folder = 'messages/2025-03-27_15-28-13/'
 
     # Enum containing the Exp numbers
-    Exp = 4
+    Exp = 2
 
     if Exp == 1 or Exp == 2:
         controller = 'OptiTrack'
@@ -206,8 +203,14 @@ def main():
     error_Label = "Erro (m)"
     
 
-    figsize = (10, 10)
-    plt.rcParams['font.size'] = 14
+    figsize = (8, 8)
+    plt.rcParams['font.size'] = 12
+    # plt.rcParams['axes.titlesize'] = 14
+    plt.rcParams['axes.labelsize'] = 16
+    plt.rcParams['axes.titlesize'] = 16
+    plt.rcParams['legend.fontsize'] = 10
+    plt.rcParams['legend.framealpha'] = 0.8
+    plt.rcParams['legend.loc'] = 'best'
 
     # ----- Figure 1: Position Plots -----
     fig1, axs1 = plt.subplots(3, 1, figsize=figsize)
@@ -274,27 +277,27 @@ def main():
 
     # SLAM vs Goal error
     axs3[0].plot(ctrl_pose_times, ctrl_pose_error, label= controller + ' vs Goal Error')
-    axs3[0].set_title(controller + " vs Goal Position Error")
-    axs3[0].set_xlabel("Time (s)")
-    axs3[0].set_ylabel("Error")
+    axs3[0].set_title("Erro de posição " + controller + " vs Objetivo")
+    axs3[0].set_xlabel(Time_Label)
+    axs3[0].set_ylabel("Erro (m)")
     axs3[0].legend()
     axs3[0].grid(True)
 
     # VRPN vs Goal error
-    axs3[1].plot(watcher_pose_times, watcher_pose_error, label=watcher + ' vs Goal Error')
+    axs3[1].plot(watcher_pose_times, watcher_pose_error, label="Erro " + watcher + ' vs Objetivo')
     axs3[1].set_title(watcher + " vs Goal Position Error")
-    axs3[1].set_xlabel("Time (s)")
-    axs3[1].set_ylabel("Error")
+    axs3[1].set_xlabel(Time_Label)
+    axs3[1].set_ylabel("Erro (m)")
     axs3[1].legend()
     axs3[1].grid(True)
 
     ctrl_vs_watcher_error = compute_error(ctrl_pose_times, ctrl_pose_positions, watcher_pose_times, watcher_pose_positions)
 
     # SLAM vs VRPN error
-    axs3[2].plot(ctrl_pose_times, ctrl_vs_watcher_error, label= controller + ' vs ' + watcher + ' Error')
-    axs3[2].set_title(controller + " vs " + watcher + " Position Error")
-    axs3[2].set_xlabel("Time (s)")
-    axs3[2].set_ylabel("Error")
+    axs3[2].plot(ctrl_pose_times, ctrl_vs_watcher_error, label= 'Erro ' + controller + ' vs ' + watcher)
+    axs3[2].set_title("Erro de Posição " + controller + " vs " + watcher)
+    axs3[2].set_xlabel(Time_Label)
+    axs3[2].set_ylabel("Erro (m)")
     axs3[2].legend()
     axs3[2].grid(True)
 
@@ -318,20 +321,20 @@ def main():
     watcher_error_y = watcher_pose_positions[:, 1] - watcher_goal_interp_y
 
     # Plot errors in X
-    axs4[0].plot(ctrl_pose_times, ctrl_error_x, label=controller + ' X Error')
-    axs4[0].plot(watcher_pose_times, watcher_error_x, label=watcher + ' X Error')
-    axs4[0].set_title("X Position Error vs Time")
-    axs4[0].set_xlabel("Time (s)")
-    axs4[0].set_ylabel("X Error")
+    axs4[0].plot(ctrl_pose_times, ctrl_error_x, label='Erro X do ' + controller)
+    axs4[0].plot(watcher_pose_times, watcher_error_x, label='Erro X do ' + watcher)
+    axs4[0].set_title("Evolução do erro de posição X")
+    axs4[0].set_xlabel(Time_Label)
+    axs4[0].set_ylabel("Erro X (m)")
     axs4[0].legend()
     axs4[0].grid(True)
 
     # Plot errors in Y
-    axs4[1].plot(ctrl_pose_times, ctrl_error_y, label=controller + ' Y Error')
-    axs4[1].plot(watcher_pose_times, watcher_error_y, label=watcher + ' Y Error')
-    axs4[1].set_title("Y Position Error vs Time")
-    axs4[1].set_xlabel("Time (s)")
-    axs4[1].set_ylabel("Y Error")
+    axs4[1].plot(ctrl_pose_times, ctrl_error_y, label='Erro Y do ' + controller)
+    axs4[1].plot(watcher_pose_times, watcher_error_y, label='Erro Y do ' + watcher)
+    axs4[1].set_title("Evolução do erro de posição Y")
+    axs4[1].set_xlabel(Time_Label)
+    axs4[1].set_ylabel("Erro Y (m)")
     axs4[1].legend()
     axs4[1].grid(True)
 
@@ -387,12 +390,12 @@ def main():
     fig_pos, axs_pos = plt.subplots(2, 1, figsize=figsize)
     
     for i in range(2):
-        axs_pos[i].plot(ctrl_goal_times, ctrl_goal_positions[:, i], label='Goal')
+        axs_pos[i].plot(ctrl_goal_times, ctrl_goal_positions[:, i], label='Desejado')
         axs_pos[i].plot(ctrl_pose_times, ctrl_pose_positions[:, i], label=controller)
         axs_pos[i].plot(watcher_pose_times, watcher_pose_positions[:, i], label=watcher)
-        axs_pos[i].set_title(f"{coord_labels[i]} Position vs Time")
-        axs_pos[i].set_xlabel("Time (s)")
-        axs_pos[i].set_ylabel(f"{coord_labels[i]} Position")
+        axs_pos[i].set_title(f"Evolução da Posição {coord_labels[i]}")
+        axs_pos[i].set_xlabel(Time_Label)
+        axs_pos[i].set_ylabel(f"Posição em {coord_labels[i]} (m)")
         axs_pos[i].legend()
         axs_pos[i].grid(True)
     fig_pos.tight_layout()
@@ -426,12 +429,13 @@ def main():
 
     # ----- Figure for showing the trajectories X vs Y -----
     fig_traj, axs_traj = plt.subplots(1, 1, figsize=figsize)
-    axs_traj.plot(ctrl_goal_positions[:, 0], ctrl_goal_positions[:, 1], linestyle='dashed', label='Goal')
+    axs_traj.plot(ctrl_goal_positions[:, 0], ctrl_goal_positions[:, 1], linestyle='dashed', label='Desejada')
     axs_traj.plot(ctrl_pose_positions[:, 0], ctrl_pose_positions[:, 1], label=controller)
     axs_traj.plot(watcher_pose_positions[:, 0], watcher_pose_positions[:, 1], label=watcher)
-    axs_traj.set_title("Trajectories X vs Y")
+    axs_traj.set_title("Trajetória Realizada e Desejada")
     axs_traj.set_xlabel("X Position")
     axs_traj.set_ylabel("Y Position")
+    # axs_traj.tick_params(axis='both', which='major', labelsize=10)
     axs_traj.legend()
     axs_traj.grid(True, 'both', 'both')
     
