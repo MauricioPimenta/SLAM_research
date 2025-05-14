@@ -24,6 +24,8 @@
 #include <cmath>
 #include <string>
 
+// Check if the filesystem library is available at the system (linux vs jetson nano)
+
 #include <filesystem> // to use filesystem
 
 #include <ctime> // to use time

@@ -117,7 +117,7 @@ generate_messages(
 catkin_package(
   INCLUDE_DIRS include
 #  LIBRARIES diff_control
-  CATKIN_DEPENDS roscpp rospy std_msgs geometry_msgs message_runtime tf2_ros tf
+  CATKIN_DEPENDS roscpp rospy std_msgs geometry_msgs gazebo_msgs message_runtime tf2_ros tf
 #  DEPENDS system_lib
 )
 
